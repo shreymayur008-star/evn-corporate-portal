@@ -13,7 +13,7 @@ export function NovaLigacaoModal({ closeModal }: { closeModal: () => void }) {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const step1Valid = useMemo(
-    () => data.nome.trim().length >= 5 && /^\d{9}$/.test(data.nuit) && MZ_PHONE.test(data.telefone),
+    () => data.nome.trim().length >= 3 && /^\d{9}$/.test(data.nuit) && MZ_PHONE.test(data.telefone),
     [data],
   );
   const step2Valid = useMemo(() => data.endereco.trim().length >= 10, [data]);

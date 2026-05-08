@@ -14,7 +14,7 @@ export function LoginModal({ setActiveModal }: { setActiveModal: (m: ModalType) 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const loginValid = useMemo(
-    () => loginData.contact.trim().length >= 5 && loginData.password.length >= 6,
+    () => loginData.contact.includes("@") && loginData.password.length >= 4,
     [loginData],
   );
 

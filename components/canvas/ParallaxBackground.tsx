@@ -32,7 +32,6 @@ export default function ParallaxBackground() {
               alt=""
               fill
               priority
-              quality={90}
               className="object-cover object-center"
               onError={() => setImgError(true)}
             />

@@ -11,7 +11,7 @@ export function AvariaModal({ closeModal }: { closeModal: () => void }) {
   const [isCapturing, setIsCapturing] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const isValid = useMemo(() => !!data.lat && data.desc.trim().length >= 10, [data]);
+  const isValid = useMemo(() => (data.lat !== 0 || data.lng !== 0) && data.desc.trim().length >= 10, [data]);
 
   const handleGPS = () => {
     setIsCapturing(true);
