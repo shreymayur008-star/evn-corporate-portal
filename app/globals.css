@@ -1,25 +1,78 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-/* Fallback for Next.js 15 / Tailwind v4 */
 @import "tailwindcss";
 
 html {
   scroll-behavior: smooth;
 }
 
-/* Custom Scrollbar */
+/* Spin-slow keyframe for the boot sequence spinner */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 3s linear infinite;
+}
+
+/* Obsidian dark scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #f8fafc;
+  background: #020617;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 4px;
+  background: rgba(249, 115, 22, 0.4);
+  border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
   background: #f97316;
+}
+
+/* Dark input utility — used in obsidian modals */
+.input-obsidian {
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  color: #e2e8f0;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+.input-obsidian::placeholder { color: #475569; }
+.input-obsidian:focus { border-color: #f97316; }
+.input-obsidian.error {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.07);
+}
+
+/* Glass card base */
+.glass-card {
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 8px 32px 0 rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Orange neon glow utility */
+.glow-orange {
+  box-shadow:
+    0 0 20px rgba(249, 115, 22, 0.3),
+    0 0 60px rgba(249, 115, 22, 0.1);
+}
+
+/* custom-scrollbar alias — used in the main modal shell */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(249, 115, 22, 0.3);
+  border-radius: 3px;
 }

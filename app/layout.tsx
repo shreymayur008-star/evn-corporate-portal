@@ -1,6 +1,8 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 import { Toaster } from "react-hot-toast";
-import "./globals.css"; // <-- THIS IS THE CRITICAL LINE THAT APPLIES STYLES
+import "./globals.css";
+import ParallaxBackground from "../components/canvas/ParallaxBackground";
+import GlobalExperience from "../components/ui/GlobalExperience";
 
 export const metadata: Metadata = {
   title: "EVN - Eletricidade Vantara Nacional",
@@ -10,11 +12,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="pt-MZ">
-      <body className="bg-slate-50 text-slate-800 antialiased overflow-x-hidden">
+      <body className="bg-transparent text-slate-200 antialiased overflow-x-hidden ">
+        <GlobalExperience />
+        <ParallaxBackground />
         {children}
-        {/* Global Notification Engine */}
         <Toaster position="top-center" />
       </body>
     </html>
   );
 }
+
