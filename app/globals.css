@@ -100,3 +100,86 @@ button:disabled,
 button[disabled] {
   cursor: not-allowed;
 }
+
+/* ─────────────────────────────────────────────────────────────────
+   FORCE OVERRIDE — final cursor pass.
+   Higher specificity + !important to beat utility classes,
+   inline styles, and user-select coupling. Do not remove.
+   ───────────────────────────────────────────────────────────────── */
+
+/* Default: arrow everywhere */
+html body,
+html body * {
+  cursor: default;
+}
+
+/* Pointer on anything actually clickable */
+html body button:not(:disabled),
+html body a[href],
+html body [role="button"]:not([aria-disabled="true"]),
+html body [role="tab"],
+html body [role="menuitem"],
+html body [data-clickable],
+html body summary,
+html body select,
+html body label[for],
+html body button:not(:disabled) *,
+html body a[href] *,
+html body [role="button"]:not([aria-disabled="true"]) *,
+html body [data-clickable] * {
+  cursor: pointer !important;
+}
+
+/* I-beam ONLY in real text-entry surfaces */
+html body input[type="text"],
+html body input[type="email"],
+html body input[type="password"],
+html body input[type="search"],
+html body input[type="tel"],
+html body input[type="url"],
+html body input[type="number"],
+html body input:not([type]),
+html body textarea,
+html body [contenteditable="true"] {
+  cursor: text !important;
+}
+
+/* Disabled controls — not-allowed */
+html body button:disabled,
+html body button:disabled *,
+html body [aria-disabled="true"],
+html body [aria-disabled="true"] *,
+html body [disabled],
+html body input:disabled,
+html body textarea:disabled,
+html body select:disabled {
+  cursor: not-allowed !important;
+}
+
+/* Range sliders, checkboxes, radios — pointer */
+html body input[type="checkbox"],
+html body input[type="radio"],
+html body input[type="range"],
+html body input[type="file"],
+html body input[type="color"] {
+  cursor: pointer !important;
+}
+
+/* Body text remains selectable — but use a separate rule that
+   does NOT change the cursor. Selectability and cursor are
+   independent concerns. */
+html body p,
+html body h1, html body h2, html body h3,
+html body h4, html body h5, html body h6,
+html body span, html body li, html body td, html body th {
+  user-select: text;
+  -webkit-user-select: text;
+  /* No cursor declaration here — inherits default from html body */
+}
+
+/* Final guard: any element with cursor-pointer Tailwind class
+   should still be a pointer (re-assert in case of conflict) */
+html body .cursor-pointer,
+html body .cursor-pointer * {
+  cursor: pointer !important;
+}
