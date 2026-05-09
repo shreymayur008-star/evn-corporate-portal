@@ -112,6 +112,26 @@ async function main() {
     create: { email: "admin@evn.co.mz", hashedPassword, role: "admin" },
   });
 
+  // ── Demo avaria reports ───────────────────────────────────────────────────
+  await prisma.avariaReport.createMany({
+    data: [
+      { type: "Poste Caído", lat: -25.9692, lng: 32.5732, description: "Poste de média tensão caído após tempestade. Cabos no chão, zona isolada com fita.", reporterIp: "192.0.2.1", status: "PENDING" },
+      { type: "Cabo Partido", lat: -25.9255, lng: 32.5816, description: "Cabo aéreo partido entre dois postes na rua principal. Corrente interrompida em três quarteirões.", reporterIp: "192.0.2.2", status: "IN_PROGRESS" },
+      { type: "Falha de Fornecimento", lat: -25.8950, lng: 32.6100, description: "Bairro inteiro sem energia há mais de 4 horas. Sem aviso prévio.", reporterIp: "192.0.2.3", status: "RESOLVED" },
+    ],
+    skipDuplicates: true,
+  });
+
+  // ── Demo contact messages ─────────────────────────────────────────────────
+  await prisma.contactMessage.createMany({
+    data: [
+      { nome: "Maria Macamo", email: "maria.macamo@example.mz", mensagem: "Boa tarde, gostaria de saber como solicitar a mudança de titularidade do contador. Obrigada.", read: false },
+      { nome: "João Sitoe", email: "joao.sitoe@example.mz", mensagem: "A minha factura deste mês parece estar errada — o consumo está três vezes acima do habitual. Podem verificar?", read: false },
+      { nome: "Ana Mahumane", email: "ana.m@example.mz", mensagem: "Excelente serviço da equipa de manutenção que veio reparar o transformador no nosso bairro. Muito obrigada!", read: true },
+    ],
+    skipDuplicates: true,
+  });
+
   console.log("✅ EVN database seeded successfully.");
 }
 

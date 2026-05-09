@@ -5,13 +5,14 @@ import { signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Newspaper, FileText, Zap, LogOut, Plus, Pencil, Trash2,
-  X, Upload, Loader2, CheckCircle2,
+  X, Upload, Loader2, CheckCircle2, AlertOctagon, Mail, MapPin,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { twMerge } from "tailwind-merge";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Tab = "news" | "services" | "alerts";
+type Tab = "news" | "services" | "alerts" | "avarias" | "contact";
 
 interface NewsArticle {
   id: number; tag: string; title: string; shortDesc: string;
@@ -26,6 +27,15 @@ interface NetworkAlert {
   zone: string; title: string; date: string; duration: string;
   description: string; active: boolean;
 }
+type AvariaReportRow = {
+  id: number; type: string; lat: number; lng: number;
+  description: string; reporterIp: string | null;
+  status: "PENDING" | "IN_PROGRESS" | "RESOLVED"; createdAt: string;
+};
+type ContactMessageRow = {
+  id: number; nome: string; email: string; mensagem: string;
+  read: boolean; createdAt: string;
+};
 
 // ── Shared glass panel ────────────────────────────────────────────────────────
 function GlassPanel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -171,6 +181,13 @@ function Textarea({ className, style, ...rest }: React.TextareaHTMLAttributes<HT
 export default function CMSDashboard() {
   const [tab, setTab] = useState<Tab>("news");
 
+  // ── Confirm dialog state ────────────────────────────────────────────────────
+  const [confirmState, setConfirmState] = useState<{
+    open: boolean; title: string; message: string; onConfirm: () => void;
+  } | null>(null);
+  const askConfirm = (opts: Omit<NonNullable<typeof confirmState>, "open">) =>
+    setConfirmState({ ...opts, open: true });
+
   // ── News state ──────────────────────────────────────────────────────────────
   const [news, setNews] = useState<NewsArticle[]>([]);
   const [newsLoading, setNewsLoading] = useState(true);
@@ -195,6 +212,13 @@ export default function CMSDashboard() {
     date: string; duration: string; description: string; active: boolean;
   }>({ type: "SCHEDULED", zone: "", title: "", date: "", duration: "", description: "", active: true });
 
+  // ── Avarias state ───────────────────────────────────────────────────────────
+  const [avarias, setAvarias] = useState<AvariaReportRow[]>([]);
+
+  // ── Contact messages state ──────────────────────────────────────────────────
+  const [messages, setMessages] = useState<ContactMessageRow[]>([]);
+  const [openMessage, setOpenMessage] = useState<ContactMessageRow | null>(null);
+
   // ── Fetchers ────────────────────────────────────────────────────────────────
   const loadNews = async () => {
     setNewsLoading(true);
@@ -214,9 +238,16 @@ export default function CMSDashboard() {
     if (res.ok) setAlerts(await res.json());
     setAlertsLoading(false);
   };
+  const loadAvarias = async () => {
+    const res = await fetch("/api/admin/avarias");
+    if (res.ok) setAvarias(await res.json());
+  };
+  const loadMessages = async () => {
+    const res = await fetch("/api/admin/contact");
+    if (res.ok) setMessages(await res.json());
+  };
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadNews(); loadServices(); loadAlerts(); }, []);
+  useEffect(() => { loadNews(); loadServices(); loadAlerts(); loadAvarias(); loadMessages(); }, []);
 
   // ── News CRUD ───────────────────────────────────────────────────────────────
   const openNewsCreate = () => {
@@ -236,10 +267,16 @@ export default function CMSDashboard() {
     if (res.ok) { toast.success(editingNews ? "Notícia atualizada." : "Notícia criada."); setNewsModal(false); loadNews(); }
     else toast.error("Erro ao guardar.");
   };
-  const deleteNews = async (id: number) => {
-    if (!confirm("Apagar esta notícia?")) return;
-    const res = await fetch(`/api/admin/news/${id}`, { method: "DELETE" });
-    if (res.ok) { toast.success("Notícia apagada."); loadNews(); }
+  const deleteNews = (id: number) => {
+    askConfirm({
+      title: "Apagar notícia?",
+      message: "Esta acção é permanente e não pode ser desfeita.",
+      onConfirm: async () => {
+        const res = await fetch(`/api/admin/news/${id}`, { method: "DELETE" });
+        if (res.ok) { toast.success("Notícia apagada."); loadNews(); }
+        else toast.error("Erro ao apagar.");
+      },
+    });
   };
 
   // ── Service CRUD ────────────────────────────────────────────────────────────
@@ -260,10 +297,16 @@ export default function CMSDashboard() {
     if (res.ok) { toast.success(editingService ? "Documento atualizado." : "Documento criado."); setServicesModal(false); loadServices(); }
     else toast.error("Erro ao guardar.");
   };
-  const deleteService = async (id: number) => {
-    if (!confirm("Apagar este documento?")) return;
-    const res = await fetch(`/api/admin/services/${id}`, { method: "DELETE" });
-    if (res.ok) { toast.success("Documento apagado."); loadServices(); }
+  const deleteService = (id: number) => {
+    askConfirm({
+      title: "Apagar documento?",
+      message: "Esta acção é permanente e não pode ser desfeita.",
+      onConfirm: async () => {
+        const res = await fetch(`/api/admin/services/${id}`, { method: "DELETE" });
+        if (res.ok) { toast.success("Documento apagado."); loadServices(); }
+        else toast.error("Erro ao apagar.");
+      },
+    });
   };
 
   // ── Alert CRUD ──────────────────────────────────────────────────────────────
@@ -284,17 +327,105 @@ export default function CMSDashboard() {
     if (res.ok) { toast.success(editingAlert ? "Alerta atualizado." : "Alerta criado."); setAlertsModal(false); loadAlerts(); }
     else toast.error("Erro ao guardar.");
   };
-  const deleteAlert = async (id: number) => {
-    if (!confirm("Apagar este alerta?")) return;
-    const res = await fetch(`/api/admin/alerts/${id}`, { method: "DELETE" });
-    if (res.ok) { toast.success("Alerta apagado."); loadAlerts(); }
+  const deleteAlert = (id: number) => {
+    askConfirm({
+      title: "Apagar alerta?",
+      message: "Esta acção é permanente e não pode ser desfeita.",
+      onConfirm: async () => {
+        const res = await fetch(`/api/admin/alerts/${id}`, { method: "DELETE" });
+        if (res.ok) { toast.success("Alerta apagado."); loadAlerts(); }
+        else toast.error("Erro ao apagar.");
+      },
+    });
+  };
+
+  // ── Avarias handlers ────────────────────────────────────────────────────────
+  const updateAvariaStatus = async (id: number, status: AvariaReportRow["status"]) => {
+    try {
+      const res = await fetch(`/api/admin/avarias/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error();
+      setAvarias((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+      toast.success("Estado actualizado.");
+    } catch {
+      toast.error("Não foi possível actualizar o estado.");
+    }
+  };
+  const deleteAvaria = (id: number) => {
+    askConfirm({
+      title: "Eliminar relatório?",
+      message: "Esta acção é permanente.",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/avarias/${id}`, { method: "DELETE" });
+          if (!res.ok) throw new Error();
+          setAvarias((prev) => prev.filter((a) => a.id !== id));
+          toast.success("Relatório eliminado.");
+        } catch {
+          toast.error("Não foi possível eliminar.");
+        }
+      },
+    });
+  };
+
+  // ── Contact message handlers ─────────────────────────────────────────────────
+  const markMessageRead = async (id: number, read: boolean) => {
+    try {
+      const res = await fetch(`/api/admin/contact/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ read }),
+      });
+      if (!res.ok) throw new Error();
+      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, read } : m)));
+      if (openMessage?.id === id) setOpenMessage((prev) => prev ? { ...prev, read } : prev);
+    } catch {
+      toast.error("Não foi possível marcar a mensagem.");
+    }
+  };
+  const deleteMessage = (id: number) => {
+    askConfirm({
+      title: "Eliminar mensagem?",
+      message: "Esta acção é permanente.",
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/contact/${id}`, { method: "DELETE" });
+          if (!res.ok) throw new Error();
+          setMessages((prev) => prev.filter((m) => m.id !== id));
+          if (openMessage?.id === id) setOpenMessage(null);
+          toast.success("Mensagem eliminada.");
+        } catch {
+          toast.error("Não foi possível eliminar.");
+        }
+      },
+    });
+  };
+
+  const handleOpenMessage = (msg: ContactMessageRow) => {
+    setOpenMessage(msg);
+    if (!msg.read) markMessageRead(msg.id, true);
+  };
+
+  // ── Status select border color ───────────────────────────────────────────────
+  const statusBorderColor = (status: AvariaReportRow["status"]) => {
+    if (status === "PENDING") return "border-red-500";
+    if (status === "IN_PROGRESS") return "border-amber-500";
+    return "border-emerald-500";
   };
 
   // ── Layout ──────────────────────────────────────────────────────────────────
+  const pendingAvarias = avarias.filter((a) => a.status === "PENDING").length;
+  const unreadMessages = messages.filter((m) => !m.read).length;
+
   const TABS = [
-    { key: "news" as Tab, label: "Notícias", icon: Newspaper },
-    { key: "services" as Tab, label: "Serviços", icon: FileText },
-    { key: "alerts" as Tab, label: "Alertas de Rede", icon: Zap },
+    { key: "news" as Tab, label: "Notícias", icon: Newspaper, badge: 0 },
+    { key: "services" as Tab, label: "Serviços", icon: FileText, badge: 0 },
+    { key: "alerts" as Tab, label: "Alertas de Rede", icon: Zap, badge: 0 },
+    { key: "avarias" as Tab, label: "Avarias", icon: AlertOctagon, badge: pendingAvarias },
+    { key: "contact" as Tab, label: "Mensagens", icon: Mail, badge: unreadMessages },
   ];
 
   return (
@@ -316,7 +447,7 @@ export default function CMSDashboard() {
 
       {/* Tab Nav */}
       <div className="flex gap-2 mb-8 flex-wrap">
-        {TABS.map(({ key, label, icon: Icon }) => (
+        {TABS.map(({ key, label, icon: Icon, badge }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -328,6 +459,12 @@ export default function CMSDashboard() {
             }
           >
             <Icon className="w-4 h-4" /> {label}
+            {badge > 0 && (
+              <span className="ml-1 bg-orange-500 text-white text-xs px-2 py-0.5 rounded-full font-bold"
+                style={tab === key ? { background: "rgba(255,255,255,0.3)" } : undefined}>
+                {badge}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -439,6 +576,135 @@ export default function CMSDashboard() {
         </GlassPanel>
       )}
 
+      {/* ── AVARIAS TAB ─────────────────────────────────────────────────────── */}
+      {tab === "avarias" && (
+        <GlassPanel>
+          <div className="p-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <h2 className="font-black text-white mb-1">Relatórios de Avaria</h2>
+            <p className="text-sm text-slate-500">
+              {avarias.length} relatórios — {pendingAvarias} pendentes
+            </p>
+          </div>
+          {avarias.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-16 text-slate-500 gap-3">
+              <AlertOctagon className="w-10 h-10 opacity-30" />
+              <span>Sem avarias reportadas.</span>
+            </div>
+          ) : (
+            <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+              {avarias.map((a) => (
+                <div key={a.id} className="flex items-start gap-4 p-6 hover:bg-white/[0.02] transition-colors">
+                  {/* Left: type + description */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="bg-orange-500/20 border border-orange-500/40 text-orange-400 px-2 py-0.5 rounded text-xs uppercase font-bold">
+                        {a.type}
+                      </span>
+                    </div>
+                    <p className="text-sm text-slate-200 leading-snug">
+                      {a.description.length > 100 ? a.description.slice(0, 100) + "…" : a.description}
+                    </p>
+                    {a.reporterIp && (
+                      <p className="text-xs text-slate-500 mt-1">IP: {a.reporterIp}</p>
+                    )}
+                  </div>
+                  {/* Middle: coordinates + map link */}
+                  <div className="shrink-0 text-center min-w-[140px]">
+                    <p className="text-xs text-slate-400 font-mono">
+                      {a.lat.toFixed(6)}, {a.lng.toFixed(6)}
+                    </p>
+                    <a
+                      href={`https://www.google.com/maps?q=${a.lat},${a.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors mt-1"
+                    >
+                      <MapPin className="w-3 h-3" /> Ver no mapa
+                    </a>
+                    <p className="text-xs text-slate-600 mt-1">
+                      {new Date(a.createdAt).toLocaleString("pt-PT")}
+                    </p>
+                  </div>
+                  {/* Right: status select */}
+                  <div className="shrink-0">
+                    <select
+                      value={a.status}
+                      onChange={(e) => updateAvariaStatus(a.id, e.target.value as AvariaReportRow["status"])}
+                      className={`border-2 ${statusBorderColor(a.status)} bg-black/40 text-slate-200 text-xs font-bold rounded-lg px-2 py-1.5 outline-none transition-colors cursor-pointer`}
+                    >
+                      <option value="PENDING">Pendente</option>
+                      <option value="IN_PROGRESS">Em Curso</option>
+                      <option value="RESOLVED">Resolvido</option>
+                    </select>
+                  </div>
+                  {/* Far right: delete */}
+                  <button
+                    onClick={() => deleteAvaria(a.id)}
+                    className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors shrink-0"
+                    style={{ background: "rgba(255,255,255,0.05)" }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </GlassPanel>
+      )}
+
+      {/* ── CONTACT MESSAGES TAB ────────────────────────────────────────────── */}
+      {tab === "contact" && (
+        <GlassPanel>
+          <div className="p-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+            <h2 className="font-black text-white mb-1">Mensagens de Contacto</h2>
+            <p className="text-sm text-slate-500">
+              {messages.length} mensagens — {unreadMessages} não lidas
+            </p>
+          </div>
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-16 text-slate-500 gap-3">
+              <Mail className="w-10 h-10 opacity-30" />
+              <span>Sem mensagens recebidas.</span>
+            </div>
+          ) : (
+            <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className="flex items-start gap-4 p-6 hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                  onClick={() => handleOpenMessage(msg)}
+                >
+                  {/* Unread dot */}
+                  <div className="shrink-0 mt-2 w-2 h-2">
+                    {!msg.read && <span className="block w-2 h-2 rounded-full bg-orange-500" />}
+                  </div>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <span className="font-bold text-slate-100">{msg.nome}</span>
+                      <span className="text-slate-500 text-sm">{msg.email}</span>
+                      <span className="text-slate-700 text-xs">·</span>
+                      <span className="text-slate-600 text-xs">{new Date(msg.createdAt).toLocaleString("pt-PT")}</span>
+                    </div>
+                    <p className="text-slate-400 text-sm line-clamp-2">
+                      {msg.mensagem.length > 140 ? msg.mensagem.slice(0, 140) + "…" : msg.mensagem}
+                    </p>
+                  </div>
+                  {/* Delete */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteMessage(msg.id); }}
+                    className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                    style={{ background: "rgba(255,255,255,0.05)" }}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </GlassPanel>
+      )}
+
       {/* ── NEWS MODAL ──────────────────────────────────────────────────────── */}
       <Modal open={newsModal} onClose={() => setNewsModal(false)} title={editingNews ? "Editar Notícia" : "Nova Notícia"}>
         <div className="space-y-5">
@@ -542,6 +808,45 @@ export default function CMSDashboard() {
           </button>
         </div>
       </Modal>
+
+      {/* ── OPEN MESSAGE MODAL ──────────────────────────────────────────────── */}
+      <Modal open={!!openMessage} onClose={() => setOpenMessage(null)} title="Mensagem">
+        {openMessage && (
+          <div className="space-y-5">
+            <div className="space-y-1">
+              <p className="text-slate-400 text-xs uppercase font-bold tracking-wider">Remetente</p>
+              <p className="text-white font-bold">{openMessage.nome}</p>
+              <p className="text-slate-400 text-sm">{openMessage.email}</p>
+              <p className="text-slate-600 text-xs">{new Date(openMessage.createdAt).toLocaleString("pt-PT")}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs uppercase font-bold tracking-wider mb-2">Mensagem</p>
+              <div
+                className="text-slate-200 text-sm leading-relaxed p-4 rounded-xl"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)", whiteSpace: "pre-wrap" }}
+              >
+                {openMessage.mensagem}
+              </div>
+            </div>
+            <a
+              href={`mailto:${openMessage.email}?subject=Re: Contacto EVN`}
+              className="flex items-center justify-center gap-2 w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition-all"
+            >
+              <Mail className="w-4 h-4" /> Responder por email
+            </a>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── CONFIRM DIALOG ──────────────────────────────────────────────────── */}
+      <ConfirmDialog
+        open={!!confirmState?.open}
+        title={confirmState?.title ?? ""}
+        message={confirmState?.message ?? ""}
+        variant="danger"
+        onConfirm={() => { confirmState?.onConfirm(); setConfirmState(null); }}
+        onCancel={() => setConfirmState(null)}
+      />
 
       {/* Toaster already in root layout */}
     </div>
