@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -10,6 +10,9 @@ import {
 import toast from "react-hot-toast";
 import { twMerge } from "tailwind-merge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import ListToolbar from "@/components/admin/ListToolbar";
+import Pagination from "@/components/admin/Pagination";
+import { useDebounce } from "@/components/hooks/useDebounce";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tab = "news" | "services" | "alerts" | "avarias" | "contact";
@@ -36,6 +39,8 @@ type ContactMessageRow = {
   id: number; nome: string; email: string; mensagem: string;
   read: boolean; createdAt: string;
 };
+
+const LIMIT = 20;
 
 // ── Shared glass panel ────────────────────────────────────────────────────────
 function GlassPanel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -189,22 +194,37 @@ export default function CMSDashboard() {
     setConfirmState({ ...opts, open: true });
 
   // ── News state ──────────────────────────────────────────────────────────────
-  const [news, setNews] = useState<NewsArticle[]>([]);
-  const [newsLoading, setNewsLoading] = useState(true);
+  const [newsList, setNewsList] = useState<NewsArticle[]>([]);
+  const [newsTotal, setNewsTotal] = useState(0);
+  const [newsPage, setNewsPage] = useState(1);
+  const [newsQ, setNewsQ] = useState("");
+  const [newsStatus, setNewsStatus] = useState("");
+  const [newsSort, setNewsSort] = useState("newest");
+  const [newsLoading, setNewsLoading] = useState(false);
   const [newsModal, setNewsModal] = useState(false);
   const [editingNews, setEditingNews] = useState<NewsArticle | null>(null);
   const [newsForm, setNewsForm] = useState({ tag: "", title: "", shortDesc: "", fullText: "", imgUrl: "", active: true });
 
   // ── Services state ──────────────────────────────────────────────────────────
-  const [services, setServices] = useState<ServiceDocument[]>([]);
-  const [servicesLoading, setServicesLoading] = useState(true);
+  const [servicesList, setServicesList] = useState<ServiceDocument[]>([]);
+  const [servicesTotal, setServicesTotal] = useState(0);
+  const [servicesPage, setServicesPage] = useState(1);
+  const [servicesQ, setServicesQ] = useState("");
+  const [servicesStatus, setServicesStatus] = useState("");
+  const [servicesSort, setServicesSort] = useState("newest");
+  const [servicesLoading, setServicesLoading] = useState(false);
   const [servicesModal, setServicesModal] = useState(false);
   const [editingService, setEditingService] = useState<ServiceDocument | null>(null);
   const [serviceForm, setServiceForm] = useState({ docId: "", title: "", fileSize: "", description: "", filePath: "", active: true });
 
   // ── Alerts state ────────────────────────────────────────────────────────────
-  const [alerts, setAlerts] = useState<NetworkAlert[]>([]);
-  const [alertsLoading, setAlertsLoading] = useState(true);
+  const [alertsList, setAlertsList] = useState<NetworkAlert[]>([]);
+  const [alertsTotal, setAlertsTotal] = useState(0);
+  const [alertsPage, setAlertsPage] = useState(1);
+  const [alertsQ, setAlertsQ] = useState("");
+  const [alertsStatus, setAlertsStatus] = useState("");
+  const [alertsSort, setAlertsSort] = useState("newest");
+  const [alertsLoading, setAlertsLoading] = useState(false);
   const [alertsModal, setAlertsModal] = useState(false);
   const [editingAlert, setEditingAlert] = useState<NetworkAlert | null>(null);
   const [alertForm, setAlertForm] = useState<{
@@ -213,41 +233,164 @@ export default function CMSDashboard() {
   }>({ type: "SCHEDULED", zone: "", title: "", date: "", duration: "", description: "", active: true });
 
   // ── Avarias state ───────────────────────────────────────────────────────────
-  const [avarias, setAvarias] = useState<AvariaReportRow[]>([]);
+  const [avariasList, setAvariasList] = useState<AvariaReportRow[]>([]);
+  const [avariasTotal, setAvariasTotal] = useState(0);
+  const [avariasPage, setAvariasPage] = useState(1);
+  const [avariasQ, setAvariasQ] = useState("");
+  const [avariasStatus, setAvariasStatus] = useState("");
+  const [avariasSort, setAvariasSort] = useState("newest");
+  const [avariasLoading, setAvariasLoading] = useState(false);
+  const [pendingAvariasCount, setPendingAvariasCount] = useState(0);
 
   // ── Contact messages state ──────────────────────────────────────────────────
-  const [messages, setMessages] = useState<ContactMessageRow[]>([]);
+  const [messagesList, setMessagesList] = useState<ContactMessageRow[]>([]);
+  const [messagesTotal, setMessagesTotal] = useState(0);
+  const [messagesPage, setMessagesPage] = useState(1);
+  const [messagesQ, setMessagesQ] = useState("");
+  const [messagesStatus, setMessagesStatus] = useState("");
+  const [messagesSort, setMessagesSort] = useState("newest");
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [openMessage, setOpenMessage] = useState<ContactMessageRow | null>(null);
 
-  // ── Fetchers ────────────────────────────────────────────────────────────────
-  const loadNews = async () => {
-    setNewsLoading(true);
-    const res = await fetch("/api/admin/news");
-    if (res.ok) setNews(await res.json());
-    setNewsLoading(false);
-  };
-  const loadServices = async () => {
-    setServicesLoading(true);
-    const res = await fetch("/api/admin/services");
-    if (res.ok) setServices(await res.json());
-    setServicesLoading(false);
-  };
-  const loadAlerts = async () => {
-    setAlertsLoading(true);
-    const res = await fetch("/api/admin/alerts");
-    if (res.ok) setAlerts(await res.json());
-    setAlertsLoading(false);
-  };
-  const loadAvarias = async () => {
-    const res = await fetch("/api/admin/avarias");
-    if (res.ok) setAvarias(await res.json());
-  };
-  const loadMessages = async () => {
-    const res = await fetch("/api/admin/contact");
-    if (res.ok) setMessages(await res.json());
-  };
+  // ── Debounced search values ─────────────────────────────────────────────────
+  const debouncedNewsQ = useDebounce(newsQ, 300);
+  const debouncedServicesQ = useDebounce(servicesQ, 300);
+  const debouncedAlertsQ = useDebounce(alertsQ, 300);
+  const debouncedAvariasQ = useDebounce(avariasQ, 300);
+  const debouncedMessagesQ = useDebounce(messagesQ, 300);
 
-  useEffect(() => { loadNews(); loadServices(); loadAlerts(); loadAvarias(); loadMessages(); }, []);
+  // ── Count fetchers ──────────────────────────────────────────────────────────
+  const loadAvariasCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/avarias/count");
+      if (res.ok) {
+        const { count } = await res.json();
+        setPendingAvariasCount(count);
+      }
+    } catch { /* silent */ }
+  }, []);
+
+  const loadMessagesCount = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/contact/count");
+      if (res.ok) {
+        const { count } = await res.json();
+        setUnreadMessagesCount(count);
+      }
+    } catch { /* silent */ }
+  }, []);
+
+  // ── Fetchers ────────────────────────────────────────────────────────────────
+  const loadNews = useCallback(async () => {
+    setNewsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        q: debouncedNewsQ, status: newsStatus, sort: newsSort,
+        page: String(newsPage), limit: String(LIMIT),
+      });
+      const res = await fetch(`/api/admin/news?${params}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setNewsList(data.items);
+      setNewsTotal(data.total);
+    } catch {
+      toast.error("Não foi possível carregar notícias.");
+    } finally {
+      setNewsLoading(false);
+    }
+  }, [debouncedNewsQ, newsStatus, newsSort, newsPage]);
+
+  const loadServices = useCallback(async () => {
+    setServicesLoading(true);
+    try {
+      const params = new URLSearchParams({
+        q: debouncedServicesQ, status: servicesStatus, sort: servicesSort,
+        page: String(servicesPage), limit: String(LIMIT),
+      });
+      const res = await fetch(`/api/admin/services?${params}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setServicesList(data.items);
+      setServicesTotal(data.total);
+    } catch {
+      toast.error("Não foi possível carregar documentos.");
+    } finally {
+      setServicesLoading(false);
+    }
+  }, [debouncedServicesQ, servicesStatus, servicesSort, servicesPage]);
+
+  const loadAlerts = useCallback(async () => {
+    setAlertsLoading(true);
+    try {
+      const params = new URLSearchParams({
+        q: debouncedAlertsQ, status: alertsStatus, sort: alertsSort,
+        page: String(alertsPage), limit: String(LIMIT),
+      });
+      const res = await fetch(`/api/admin/alerts?${params}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setAlertsList(data.items);
+      setAlertsTotal(data.total);
+    } catch {
+      toast.error("Não foi possível carregar alertas.");
+    } finally {
+      setAlertsLoading(false);
+    }
+  }, [debouncedAlertsQ, alertsStatus, alertsSort, alertsPage]);
+
+  const loadAvarias = useCallback(async () => {
+    setAvariasLoading(true);
+    try {
+      const params = new URLSearchParams({
+        q: debouncedAvariasQ, status: avariasStatus, sort: avariasSort,
+        page: String(avariasPage), limit: String(LIMIT),
+      });
+      const res = await fetch(`/api/admin/avarias?${params}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setAvariasList(data.items);
+      setAvariasTotal(data.total);
+      loadAvariasCount();
+    } catch {
+      toast.error("Não foi possível carregar avarias.");
+    } finally {
+      setAvariasLoading(false);
+    }
+  }, [debouncedAvariasQ, avariasStatus, avariasSort, avariasPage, loadAvariasCount]);
+
+  const loadMessages = useCallback(async () => {
+    setMessagesLoading(true);
+    try {
+      const params = new URLSearchParams({
+        q: debouncedMessagesQ, status: messagesStatus, sort: messagesSort,
+        page: String(messagesPage), limit: String(LIMIT),
+      });
+      const res = await fetch(`/api/admin/contact?${params}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setMessagesList(data.items);
+      setMessagesTotal(data.total);
+      loadMessagesCount();
+    } catch {
+      toast.error("Não foi possível carregar mensagens.");
+    } finally {
+      setMessagesLoading(false);
+    }
+  }, [debouncedMessagesQ, messagesStatus, messagesSort, messagesPage, loadMessagesCount]);
+
+  useEffect(() => { loadNews(); }, [loadNews]);
+  useEffect(() => { loadServices(); }, [loadServices]);
+  useEffect(() => { loadAlerts(); }, [loadAlerts]);
+  useEffect(() => { loadAvarias(); }, [loadAvarias]);
+  useEffect(() => { loadMessages(); }, [loadMessages]);
+
+  // ── Reset page to 1 when filters change ────────────────────────────────────
+  useEffect(() => { setNewsPage(1); }, [debouncedNewsQ, newsStatus, newsSort]);
+  useEffect(() => { setServicesPage(1); }, [debouncedServicesQ, servicesStatus, servicesSort]);
+  useEffect(() => { setAlertsPage(1); }, [debouncedAlertsQ, alertsStatus, alertsSort]);
+  useEffect(() => { setAvariasPage(1); }, [debouncedAvariasQ, avariasStatus, avariasSort]);
+  useEffect(() => { setMessagesPage(1); }, [debouncedMessagesQ, messagesStatus, messagesSort]);
 
   // ── News CRUD ───────────────────────────────────────────────────────────────
   const openNewsCreate = () => {
@@ -348,7 +491,8 @@ export default function CMSDashboard() {
         body: JSON.stringify({ status }),
       });
       if (!res.ok) throw new Error();
-      setAvarias((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+      setAvariasList((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
+      loadAvariasCount();
       toast.success("Estado actualizado.");
     } catch {
       toast.error("Não foi possível actualizar o estado.");
@@ -362,8 +506,8 @@ export default function CMSDashboard() {
         try {
           const res = await fetch(`/api/admin/avarias/${id}`, { method: "DELETE" });
           if (!res.ok) throw new Error();
-          setAvarias((prev) => prev.filter((a) => a.id !== id));
           toast.success("Relatório eliminado.");
+          loadAvarias();
         } catch {
           toast.error("Não foi possível eliminar.");
         }
@@ -380,8 +524,9 @@ export default function CMSDashboard() {
         body: JSON.stringify({ read }),
       });
       if (!res.ok) throw new Error();
-      setMessages((prev) => prev.map((m) => (m.id === id ? { ...m, read } : m)));
+      setMessagesList((prev) => prev.map((m) => (m.id === id ? { ...m, read } : m)));
       if (openMessage?.id === id) setOpenMessage((prev) => prev ? { ...prev, read } : prev);
+      loadMessagesCount();
     } catch {
       toast.error("Não foi possível marcar a mensagem.");
     }
@@ -394,9 +539,9 @@ export default function CMSDashboard() {
         try {
           const res = await fetch(`/api/admin/contact/${id}`, { method: "DELETE" });
           if (!res.ok) throw new Error();
-          setMessages((prev) => prev.filter((m) => m.id !== id));
           if (openMessage?.id === id) setOpenMessage(null);
           toast.success("Mensagem eliminada.");
+          loadMessages();
         } catch {
           toast.error("Não foi possível eliminar.");
         }
@@ -417,15 +562,12 @@ export default function CMSDashboard() {
   };
 
   // ── Layout ──────────────────────────────────────────────────────────────────
-  const pendingAvarias = avarias.filter((a) => a.status === "PENDING").length;
-  const unreadMessages = messages.filter((m) => !m.read).length;
-
   const TABS = [
     { key: "news" as Tab, label: "Notícias", icon: Newspaper, badge: 0 },
     { key: "services" as Tab, label: "Serviços", icon: FileText, badge: 0 },
     { key: "alerts" as Tab, label: "Alertas de Rede", icon: Zap, badge: 0 },
-    { key: "avarias" as Tab, label: "Avarias", icon: AlertOctagon, badge: pendingAvarias },
-    { key: "contact" as Tab, label: "Mensagens", icon: Mail, badge: unreadMessages },
+    { key: "avarias" as Tab, label: "Avarias", icon: AlertOctagon, badge: pendingAvariasCount },
+    { key: "contact" as Tab, label: "Mensagens", icon: Mail, badge: unreadMessagesCount },
   ];
 
   return (
@@ -473,38 +615,64 @@ export default function CMSDashboard() {
       {tab === "news" && (
         <GlassPanel>
           <div className="flex items-center justify-between p-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-            <h2 className="font-black text-white">Notícias <span className="text-slate-500 font-normal text-sm ml-2">({news.length})</span></h2>
+            <h2 className="font-black text-white">
+              Notícias <span className="text-slate-500 font-normal text-sm ml-2">({newsTotal})</span>
+            </h2>
             <button onClick={openNewsCreate} className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
               <Plus className="w-4 h-4" /> Nova Notícia
             </button>
           </div>
-          {newsLoading ? (
-            <div className="flex justify-center p-16"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
-          ) : news.length === 0 ? (
-            <div className="text-center p-16 text-slate-500">Nenhuma notícia. Adicione a primeira.</div>
-          ) : (
-            <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-              {news.map((n) => (
-                <div key={n.id} className="flex items-start gap-4 p-6 group hover:bg-white/[0.02] transition-colors">
-                  {n.imgUrl && (
-                    <img src={n.imgUrl} alt="" className="w-16 h-16 rounded-xl object-cover shrink-0" />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded-full">{n.tag}</span>
-                      {!n.active && <span className="text-xs font-bold text-slate-500 bg-white/5 px-2 py-0.5 rounded-full">Inativo</span>}
+          <div className="p-6">
+            <ListToolbar
+              q={newsQ}
+              onQChange={setNewsQ}
+              placeholder="Pesquisar por título, descrição ou tag…"
+              status={newsStatus}
+              onStatusChange={setNewsStatus}
+              statusOptions={[
+                { value: "active", label: "Activos" },
+                { value: "inactive", label: "Inactivos" },
+              ]}
+              sort={newsSort}
+              onSortChange={setNewsSort}
+              sortOptions={[
+                { value: "newest", label: "Mais recentes" },
+                { value: "oldest", label: "Mais antigos" },
+                { value: "az", label: "A → Z" },
+                { value: "za", label: "Z → A" },
+              ]}
+            />
+            {newsLoading ? (
+              <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
+            ) : newsList.length === 0 ? (
+              <div className="text-center p-12 text-slate-500">
+                {newsQ || newsStatus ? "Nenhum resultado para os filtros aplicados." : "Nenhuma notícia. Adicione a primeira."}
+              </div>
+            ) : (
+              <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                {newsList.map((n) => (
+                  <div key={n.id} className="flex items-start gap-4 py-4 group hover:bg-white/[0.02] transition-colors rounded-xl px-2">
+                    {n.imgUrl && (
+                      <img src={n.imgUrl} alt="" className="w-16 h-16 rounded-xl object-cover shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded-full">{n.tag}</span>
+                        {!n.active && <span className="text-xs font-bold text-slate-500 bg-white/5 px-2 py-0.5 rounded-full">Inativo</span>}
+                      </div>
+                      <p className="font-bold text-white text-sm leading-snug truncate">{n.title}</p>
+                      <p className="text-xs text-slate-500 mt-1 line-clamp-1">{n.shortDesc}</p>
                     </div>
-                    <p className="font-bold text-white text-sm leading-snug truncate">{n.title}</p>
-                    <p className="text-xs text-slate-500 mt-1 line-clamp-1">{n.shortDesc}</p>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => openNewsEdit(n)} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
+                      <button onClick={() => deleteNews(n.id)} className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Trash2 className="w-4 h-4" /></button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button onClick={() => openNewsEdit(n)} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
-                    <button onClick={() => deleteNews(n.id)} className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+            <Pagination page={newsPage} total={newsTotal} limit={LIMIT} onPageChange={setNewsPage} />
+          </div>
         </GlassPanel>
       )}
 
@@ -512,34 +680,58 @@ export default function CMSDashboard() {
       {tab === "services" && (
         <GlassPanel>
           <div className="flex items-center justify-between p-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-            <h2 className="font-black text-white">Documentos e Serviços <span className="text-slate-500 font-normal text-sm ml-2">({services.length})</span></h2>
+            <h2 className="font-black text-white">
+              Documentos e Serviços <span className="text-slate-500 font-normal text-sm ml-2">({servicesTotal})</span>
+            </h2>
             <button onClick={openServiceCreate} className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
               <Plus className="w-4 h-4" /> Novo Documento
             </button>
           </div>
-          {servicesLoading ? (
-            <div className="flex justify-center p-16"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
-          ) : services.length === 0 ? (
-            <div className="text-center p-16 text-slate-500">Nenhum documento.</div>
-          ) : (
-            <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-              {services.map((s) => (
-                <div key={s.id} className="flex items-center gap-4 p-6 hover:bg-white/[0.02] transition-colors">
-                  <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(59,130,246,0.1)" }}>
-                    <FileText className="w-6 h-6 text-blue-400" />
+          <div className="p-6">
+            <ListToolbar
+              q={servicesQ}
+              onQChange={setServicesQ}
+              placeholder="Pesquisar por título, descrição ou docId…"
+              status={servicesStatus}
+              onStatusChange={setServicesStatus}
+              statusOptions={[
+                { value: "active", label: "Activos" },
+                { value: "inactive", label: "Inactivos" },
+              ]}
+              sort={servicesSort}
+              onSortChange={setServicesSort}
+              sortOptions={[
+                { value: "newest", label: "Mais recentes" },
+                { value: "oldest", label: "Mais antigos" },
+              ]}
+            />
+            {servicesLoading ? (
+              <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
+            ) : servicesList.length === 0 ? (
+              <div className="text-center p-12 text-slate-500">
+                {servicesQ || servicesStatus ? "Nenhum resultado para os filtros aplicados." : "Nenhum documento."}
+              </div>
+            ) : (
+              <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                {servicesList.map((s) => (
+                  <div key={s.id} className="flex items-center gap-4 py-4 hover:bg-white/[0.02] transition-colors rounded-xl px-2">
+                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(59,130,246,0.1)" }}>
+                      <FileText className="w-6 h-6 text-blue-400" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-white text-sm">{s.title}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{s.fileSize} · {s.description}</p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => openServiceEdit(s)} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
+                      <button onClick={() => deleteService(s.id)} className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Trash2 className="w-4 h-4" /></button>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-white text-sm">{s.title}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{s.fileSize} · {s.description}</p>
-                  </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button onClick={() => openServiceEdit(s)} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
-                    <button onClick={() => deleteService(s.id)} className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+            <Pagination page={servicesPage} total={servicesTotal} limit={LIMIT} onPageChange={setServicesPage} />
+          </div>
         </GlassPanel>
       )}
 
@@ -547,32 +739,59 @@ export default function CMSDashboard() {
       {tab === "alerts" && (
         <GlassPanel>
           <div className="flex items-center justify-between p-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-            <h2 className="font-black text-white">Alertas de Rede <span className="text-slate-500 font-normal text-sm ml-2">({alerts.length})</span></h2>
+            <h2 className="font-black text-white">
+              Alertas de Rede <span className="text-slate-500 font-normal text-sm ml-2">({alertsTotal})</span>
+            </h2>
             <button onClick={openAlertCreate} className="flex items-center gap-2 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors">
               <Plus className="w-4 h-4" /> Novo Alerta
             </button>
           </div>
-          {alertsLoading ? (
-            <div className="flex justify-center p-16"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
-          ) : alerts.length === 0 ? (
-            <div className="text-center p-16 text-slate-500">Nenhum alerta.</div>
-          ) : (
-            <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-              {alerts.map((a) => (
-                <div key={a.id} className="flex items-start gap-4 p-6 hover:bg-white/[0.02] transition-colors">
-                  <AlertBadge type={a.type} />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-white text-sm">{a.title}</p>
-                    <p className="text-xs text-slate-500 mt-0.5">{a.zone} · {a.date} · {a.duration}</p>
+          <div className="p-6">
+            <ListToolbar
+              q={alertsQ}
+              onQChange={setAlertsQ}
+              placeholder="Pesquisar por título, zona ou descrição…"
+              status={alertsStatus}
+              onStatusChange={setAlertsStatus}
+              statusOptions={[
+                { value: "URGENT", label: "Urgente" },
+                { value: "SCHEDULED", label: "Programado" },
+                { value: "RESOLVED", label: "Resolvido" },
+                { value: "active", label: "Activos" },
+                { value: "inactive", label: "Inactivos" },
+              ]}
+              sort={alertsSort}
+              onSortChange={setAlertsSort}
+              sortOptions={[
+                { value: "newest", label: "Mais recentes" },
+                { value: "oldest", label: "Mais antigos" },
+              ]}
+            />
+            {alertsLoading ? (
+              <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
+            ) : alertsList.length === 0 ? (
+              <div className="text-center p-12 text-slate-500">
+                {alertsQ || alertsStatus ? "Nenhum resultado para os filtros aplicados." : "Nenhum alerta."}
+              </div>
+            ) : (
+              <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                {alertsList.map((a) => (
+                  <div key={a.id} className="flex items-start gap-4 py-4 hover:bg-white/[0.02] transition-colors rounded-xl px-2">
+                    <AlertBadge type={a.type} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-white text-sm">{a.title}</p>
+                      <p className="text-xs text-slate-500 mt-0.5">{a.zone} · {a.date} · {a.duration}</p>
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => openAlertEdit(a)} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
+                      <button onClick={() => deleteAlert(a.id)} className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Trash2 className="w-4 h-4" /></button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 shrink-0">
-                    <button onClick={() => openAlertEdit(a)} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
-                    <button onClick={() => deleteAlert(a.id)} className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Trash2 className="w-4 h-4" /></button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+            <Pagination page={alertsPage} total={alertsTotal} limit={LIMIT} onPageChange={setAlertsPage} />
+          </div>
         </GlassPanel>
       )}
 
@@ -582,73 +801,96 @@ export default function CMSDashboard() {
           <div className="p-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             <h2 className="font-black text-white mb-1">Relatórios de Avaria</h2>
             <p className="text-sm text-slate-500">
-              {avarias.length} relatórios — {pendingAvarias} pendentes
+              {avariasTotal} relatórios — {pendingAvariasCount} pendentes
             </p>
           </div>
-          {avarias.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-16 text-slate-500 gap-3">
-              <AlertOctagon className="w-10 h-10 opacity-30" />
-              <span>Sem avarias reportadas.</span>
-            </div>
-          ) : (
-            <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-              {avarias.map((a) => (
-                <div key={a.id} className="flex items-start gap-4 p-6 hover:bg-white/[0.02] transition-colors">
-                  {/* Left: type + description */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="bg-orange-500/20 border border-orange-500/40 text-orange-400 px-2 py-0.5 rounded text-xs uppercase font-bold">
-                        {a.type}
-                      </span>
+          <div className="p-6">
+            <ListToolbar
+              q={avariasQ}
+              onQChange={setAvariasQ}
+              placeholder="Pesquisar por descrição ou tipo…"
+              status={avariasStatus}
+              onStatusChange={setAvariasStatus}
+              statusOptions={[
+                { value: "PENDING", label: "Pendente" },
+                { value: "IN_PROGRESS", label: "Em Curso" },
+                { value: "RESOLVED", label: "Resolvido" },
+              ]}
+              sort={avariasSort}
+              onSortChange={setAvariasSort}
+              sortOptions={[
+                { value: "newest", label: "Mais recentes" },
+                { value: "oldest", label: "Mais antigos" },
+              ]}
+            />
+            {avariasLoading ? (
+              <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
+            ) : avariasList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-12 text-slate-500 gap-3">
+                <AlertOctagon className="w-10 h-10 opacity-30" />
+                <span>{avariasQ || avariasStatus ? "Nenhum resultado para os filtros aplicados." : "Sem avarias reportadas."}</span>
+              </div>
+            ) : (
+              <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                {avariasList.map((a) => (
+                  <div key={a.id} className="flex items-start gap-4 py-4 hover:bg-white/[0.02] transition-colors rounded-xl px-2">
+                    {/* Left: type + description */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="bg-orange-500/20 border border-orange-500/40 text-orange-400 px-2 py-0.5 rounded text-xs uppercase font-bold">
+                          {a.type}
+                        </span>
+                      </div>
+                      <p className="text-sm text-slate-200 leading-snug">
+                        {a.description.length > 100 ? a.description.slice(0, 100) + "…" : a.description}
+                      </p>
+                      {a.reporterIp && (
+                        <p className="text-xs text-slate-500 mt-1">IP: {a.reporterIp}</p>
+                      )}
                     </div>
-                    <p className="text-sm text-slate-200 leading-snug">
-                      {a.description.length > 100 ? a.description.slice(0, 100) + "…" : a.description}
-                    </p>
-                    {a.reporterIp && (
-                      <p className="text-xs text-slate-500 mt-1">IP: {a.reporterIp}</p>
-                    )}
-                  </div>
-                  {/* Middle: coordinates + map link */}
-                  <div className="shrink-0 text-center min-w-[140px]">
-                    <p className="text-xs text-slate-400 font-mono">
-                      {a.lat.toFixed(6)}, {a.lng.toFixed(6)}
-                    </p>
-                    <a
-                      href={`https://www.google.com/maps?q=${a.lat},${a.lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors mt-1"
+                    {/* Middle: coordinates + map link */}
+                    <div className="shrink-0 text-center min-w-[140px]">
+                      <p className="text-xs text-slate-400 font-mono">
+                        {a.lat.toFixed(6)}, {a.lng.toFixed(6)}
+                      </p>
+                      <a
+                        href={`https://www.google.com/maps?q=${a.lat},${a.lng}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors mt-1"
+                      >
+                        <MapPin className="w-3 h-3" /> Ver no mapa
+                      </a>
+                      <p className="text-xs text-slate-600 mt-1">
+                        {new Date(a.createdAt).toLocaleString("pt-PT")}
+                      </p>
+                    </div>
+                    {/* Right: status select */}
+                    <div className="shrink-0">
+                      <select
+                        value={a.status}
+                        onChange={(e) => updateAvariaStatus(a.id, e.target.value as AvariaReportRow["status"])}
+                        className={`border-2 ${statusBorderColor(a.status)} bg-black/40 text-slate-200 text-xs font-bold rounded-lg px-2 py-1.5 outline-none transition-colors cursor-pointer`}
+                      >
+                        <option value="PENDING">Pendente</option>
+                        <option value="IN_PROGRESS">Em Curso</option>
+                        <option value="RESOLVED">Resolvido</option>
+                      </select>
+                    </div>
+                    {/* Far right: delete */}
+                    <button
+                      onClick={() => deleteAvaria(a.id)}
+                      className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors shrink-0"
+                      style={{ background: "rgba(255,255,255,0.05)" }}
                     >
-                      <MapPin className="w-3 h-3" /> Ver no mapa
-                    </a>
-                    <p className="text-xs text-slate-600 mt-1">
-                      {new Date(a.createdAt).toLocaleString("pt-PT")}
-                    </p>
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                  {/* Right: status select */}
-                  <div className="shrink-0">
-                    <select
-                      value={a.status}
-                      onChange={(e) => updateAvariaStatus(a.id, e.target.value as AvariaReportRow["status"])}
-                      className={`border-2 ${statusBorderColor(a.status)} bg-black/40 text-slate-200 text-xs font-bold rounded-lg px-2 py-1.5 outline-none transition-colors cursor-pointer`}
-                    >
-                      <option value="PENDING">Pendente</option>
-                      <option value="IN_PROGRESS">Em Curso</option>
-                      <option value="RESOLVED">Resolvido</option>
-                    </select>
-                  </div>
-                  {/* Far right: delete */}
-                  <button
-                    onClick={() => deleteAvaria(a.id)}
-                    className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors shrink-0"
-                    style={{ background: "rgba(255,255,255,0.05)" }}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+            <Pagination page={avariasPage} total={avariasTotal} limit={LIMIT} onPageChange={setAvariasPage} />
+          </div>
         </GlassPanel>
       )}
 
@@ -658,50 +900,72 @@ export default function CMSDashboard() {
           <div className="p-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             <h2 className="font-black text-white mb-1">Mensagens de Contacto</h2>
             <p className="text-sm text-slate-500">
-              {messages.length} mensagens — {unreadMessages} não lidas
+              {messagesTotal} mensagens — {unreadMessagesCount} não lidas
             </p>
           </div>
-          {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-16 text-slate-500 gap-3">
-              <Mail className="w-10 h-10 opacity-30" />
-              <span>Sem mensagens recebidas.</span>
-            </div>
-          ) : (
-            <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className="flex items-start gap-4 p-6 hover:bg-white/[0.02] transition-colors cursor-pointer group"
-                  onClick={() => handleOpenMessage(msg)}
-                >
-                  {/* Unread dot */}
-                  <div className="shrink-0 mt-2 w-2 h-2">
-                    {!msg.read && <span className="block w-2 h-2 rounded-full bg-orange-500" />}
-                  </div>
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap mb-1">
-                      <span className="font-bold text-slate-100">{msg.nome}</span>
-                      <span className="text-slate-500 text-sm">{msg.email}</span>
-                      <span className="text-slate-700 text-xs">·</span>
-                      <span className="text-slate-600 text-xs">{new Date(msg.createdAt).toLocaleString("pt-PT")}</span>
-                    </div>
-                    <p className="text-slate-400 text-sm line-clamp-2">
-                      {msg.mensagem.length > 140 ? msg.mensagem.slice(0, 140) + "…" : msg.mensagem}
-                    </p>
-                  </div>
-                  {/* Delete */}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); deleteMessage(msg.id); }}
-                    className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
-                    style={{ background: "rgba(255,255,255,0.05)" }}
+          <div className="p-6">
+            <ListToolbar
+              q={messagesQ}
+              onQChange={setMessagesQ}
+              placeholder="Pesquisar por nome, email ou mensagem…"
+              status={messagesStatus}
+              onStatusChange={setMessagesStatus}
+              statusOptions={[
+                { value: "unread", label: "Não Lidas" },
+                { value: "read", label: "Lidas" },
+              ]}
+              sort={messagesSort}
+              onSortChange={setMessagesSort}
+              sortOptions={[
+                { value: "newest", label: "Mais recentes" },
+                { value: "oldest", label: "Mais antigos" },
+              ]}
+            />
+            {messagesLoading ? (
+              <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
+            ) : messagesList.length === 0 ? (
+              <div className="flex flex-col items-center justify-center p-12 text-slate-500 gap-3">
+                <Mail className="w-10 h-10 opacity-30" />
+                <span>{messagesQ || messagesStatus ? "Nenhum resultado para os filtros aplicados." : "Sem mensagens recebidas."}</span>
+              </div>
+            ) : (
+              <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                {messagesList.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className="flex items-start gap-4 py-4 hover:bg-white/[0.02] transition-colors cursor-pointer group rounded-xl px-2"
+                    onClick={() => handleOpenMessage(msg)}
                   >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+                    {/* Unread dot */}
+                    <div className="shrink-0 mt-2 w-2 h-2">
+                      {!msg.read && <span className="block w-2 h-2 rounded-full bg-orange-500" />}
+                    </div>
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="font-bold text-slate-100">{msg.nome}</span>
+                        <span className="text-slate-500 text-sm">{msg.email}</span>
+                        <span className="text-slate-700 text-xs">·</span>
+                        <span className="text-slate-600 text-xs">{new Date(msg.createdAt).toLocaleString("pt-PT")}</span>
+                      </div>
+                      <p className="text-slate-400 text-sm line-clamp-2">
+                        {msg.mensagem.length > 140 ? msg.mensagem.slice(0, 140) + "…" : msg.mensagem}
+                      </p>
+                    </div>
+                    {/* Delete */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteMessage(msg.id); }}
+                      className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                      style={{ background: "rgba(255,255,255,0.05)" }}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Pagination page={messagesPage} total={messagesTotal} limit={LIMIT} onPageChange={setMessagesPage} />
+          </div>
         </GlassPanel>
       )}
 
