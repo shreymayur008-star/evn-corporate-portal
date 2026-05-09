@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import MediaCard from "@/components/admin/MediaCard";
 import MediaPicker from "@/components/admin/MediaPicker";
+import RichTextEditor from "@/components/admin/RichTextEditor";
 import toast from "react-hot-toast";
 import { twMerge } from "tailwind-merge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -1234,12 +1235,11 @@ export default function CMSDashboard() {
             {newsErrors.shortDesc && <p className="text-red-400 text-xs mt-1">{newsErrors.shortDesc}</p>}
           </Field>
           <Field label="Conteúdo">
-            <Textarea
-              rows={5}
+            <RichTextEditor
               value={newsForm.fullText}
-              onChange={(e) => { setNewsForm({ ...newsForm, fullText: e.target.value }); if (newsErrors.fullText) setNewsErrors(prev => ({ ...prev, fullText: "" })); }}
-              placeholder="Conteúdo completo da notícia"
-              className={newsErrors.fullText ? "border-red-500" : ""}
+              onChange={(html) => { setNewsForm(prev => ({ ...prev, fullText: html })); if (newsErrors.fullText) setNewsErrors(prev => ({ ...prev, fullText: "" })); }}
+              placeholder="Escreva o conteúdo do artigo…"
+              error={!!newsErrors.fullText}
             />
             {newsErrors.fullText && <p className="text-red-400 text-xs mt-1">{newsErrors.fullText}</p>}
           </Field>
@@ -1356,7 +1356,7 @@ export default function CMSDashboard() {
                     {newsForm.title || "Sem título"}
                   </h1>
                   <p className="text-lg text-slate-400 mb-6">{newsForm.shortDesc || "Sem resumo"}</p>
-                  <div className="prose-evn whitespace-pre-line text-slate-400">{newsForm.fullText || "Sem conteúdo."}</div>
+                  <div className="prose-evn" dangerouslySetInnerHTML={{ __html: newsForm.fullText || "<p>Sem conteúdo.</p>" }} />
                   <p className="text-sm text-slate-500 mt-8 pt-4 border-t border-white/10">
                     Pré-visualização — não publicado.
                   </p>
