@@ -6,7 +6,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Newspaper, FileText, Zap, LogOut, Plus, Pencil, Trash2,
   X, Upload, Loader2, CheckCircle2, AlertOctagon, Mail, MapPin,
+  Image as ImageIcon, AlertTriangle, Search,
 } from "lucide-react";
+import MediaCard from "@/components/admin/MediaCard";
+import MediaPicker from "@/components/admin/MediaPicker";
 import toast from "react-hot-toast";
 import { twMerge } from "tailwind-merge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
@@ -15,7 +18,7 @@ import Pagination from "@/components/admin/Pagination";
 import { useDebounce } from "@/components/hooks/useDebounce";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Tab = "news" | "services" | "alerts" | "avarias" | "contact";
+type Tab = "news" | "services" | "alerts" | "avarias" | "contact" | "media";
 
 interface NewsArticle {
   id: number; tag: string; title: string; shortDesc: string;
@@ -38,6 +41,10 @@ type AvariaReportRow = {
 type ContactMessageRow = {
   id: number; nome: string; email: string; mensagem: string;
   read: boolean; createdAt: string;
+};
+type MediaAssetRow = {
+  id: number; filename: string; originalName: string; url: string;
+  mimeType: string; sizeBytes: number; uploadedBy: string | null; createdAt: string;
 };
 
 const LIMIT = 20;
@@ -253,12 +260,26 @@ export default function CMSDashboard() {
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [openMessage, setOpenMessage] = useState<ContactMessageRow | null>(null);
 
+  // ── Media state ─────────────────────────────────────────────────────────────
+  const [mediaList, setMediaList] = useState<MediaAssetRow[]>([]);
+  const [mediaTotal, setMediaTotal] = useState(0);
+  const [mediaPage, setMediaPage] = useState(1);
+  const [mediaQ, setMediaQ] = useState("");
+  const [mediaStatus, setMediaStatus] = useState("");
+  const [mediaSort, setMediaSort] = useState("newest");
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [orphans, setOrphans] = useState<MediaAssetRow[]>([]);
+  const [orphansChecking, setOrphansChecking] = useState(false);
+  const [newsPickerOpen, setNewsPickerOpen] = useState(false);
+  const [servicesPickerOpen, setServicesPickerOpen] = useState(false);
+
   // ── Debounced search values ─────────────────────────────────────────────────
   const debouncedNewsQ = useDebounce(newsQ, 300);
   const debouncedServicesQ = useDebounce(servicesQ, 300);
   const debouncedAlertsQ = useDebounce(alertsQ, 300);
   const debouncedAvariasQ = useDebounce(avariasQ, 300);
   const debouncedMessagesQ = useDebounce(messagesQ, 300);
+  const debouncedMediaQ = useDebounce(mediaQ, 300);
 
   // ── Count fetchers ──────────────────────────────────────────────────────────
   const loadAvariasCount = useCallback(async () => {
@@ -379,11 +400,31 @@ export default function CMSDashboard() {
     }
   }, [debouncedMessagesQ, messagesStatus, messagesSort, messagesPage, loadMessagesCount]);
 
+  const loadMedia = useCallback(async () => {
+    setMediaLoading(true);
+    try {
+      const params = new URLSearchParams({
+        q: debouncedMediaQ, status: mediaStatus, sort: mediaSort,
+        page: String(mediaPage), limit: String(LIMIT),
+      });
+      const res = await fetch(`/api/admin/media?${params}`);
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setMediaList(data.items);
+      setMediaTotal(data.total);
+    } catch {
+      toast.error("Não foi possível carregar media.");
+    } finally {
+      setMediaLoading(false);
+    }
+  }, [debouncedMediaQ, mediaStatus, mediaSort, mediaPage]);
+
   useEffect(() => { loadNews(); }, [loadNews]);
   useEffect(() => { loadServices(); }, [loadServices]);
   useEffect(() => { loadAlerts(); }, [loadAlerts]);
   useEffect(() => { loadAvarias(); }, [loadAvarias]);
   useEffect(() => { loadMessages(); }, [loadMessages]);
+  useEffect(() => { loadMedia(); }, [loadMedia]);
 
   // ── Reset page to 1 when filters change ────────────────────────────────────
   useEffect(() => { setNewsPage(1); }, [debouncedNewsQ, newsStatus, newsSort]);
@@ -391,6 +432,7 @@ export default function CMSDashboard() {
   useEffect(() => { setAlertsPage(1); }, [debouncedAlertsQ, alertsStatus, alertsSort]);
   useEffect(() => { setAvariasPage(1); }, [debouncedAvariasQ, avariasStatus, avariasSort]);
   useEffect(() => { setMessagesPage(1); }, [debouncedMessagesQ, messagesStatus, messagesSort]);
+  useEffect(() => { setMediaPage(1); }, [debouncedMediaQ, mediaStatus, mediaSort]);
 
   // ── News CRUD ───────────────────────────────────────────────────────────────
   const openNewsCreate = () => {
@@ -561,6 +603,67 @@ export default function CMSDashboard() {
     return "border-emerald-500";
   };
 
+  // ── Media handlers ───────────────────────────────────────────────────────────
+  const handleCopyUrl = async (url: string) => {
+    const fullUrl = `${window.location.origin}${url}`;
+    try {
+      await navigator.clipboard.writeText(fullUrl);
+      toast.success("URL copiado para a área de transferência.");
+    } catch {
+      toast.error("Não foi possível copiar.");
+    }
+  };
+
+  const handleDeleteMedia = (id: number, originalName: string) => {
+    askConfirm({
+      title: "Eliminar ficheiro?",
+      message: `Esta acção vai eliminar "${originalName}" permanentemente. Se o ficheiro estiver em uso por uma notícia ou serviço, a referência ficará quebrada.`,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`/api/admin/media/${id}`, { method: "DELETE" });
+          if (!res.ok) throw new Error();
+          setMediaList((prev) => prev.filter((m) => m.id !== id));
+          setMediaTotal((t) => t - 1);
+          toast.success("Ficheiro eliminado.");
+        } catch {
+          toast.error("Não foi possível eliminar.");
+        }
+      },
+    });
+  };
+
+  const checkOrphans = async () => {
+    setOrphansChecking(true);
+    try {
+      const res = await fetch("/api/admin/media/orphans");
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      setOrphans(data.orphans);
+      if (data.orphans.length === 0) {
+        toast.success("Nenhum órfão encontrado — tudo arrumado!");
+      } else {
+        toast(`${data.orphans.length} ficheiro(s) órfão(s) detectado(s).`, { icon: "⚠️" });
+      }
+    } catch {
+      toast.error("Não foi possível verificar órfãos.");
+    } finally {
+      setOrphansChecking(false);
+    }
+  };
+
+  const cleanupOrphans = async () => {
+    try {
+      const res = await fetch("/api/admin/media/orphans/cleanup", { method: "POST" });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      toast.success(`${data.removed} ficheiro(s) eliminado(s).`);
+      setOrphans([]);
+      loadMedia();
+    } catch {
+      toast.error("Não foi possível limpar.");
+    }
+  };
+
   // ── Layout ──────────────────────────────────────────────────────────────────
   const TABS = [
     { key: "news" as Tab, label: "Notícias", icon: Newspaper, badge: 0 },
@@ -568,6 +671,7 @@ export default function CMSDashboard() {
     { key: "alerts" as Tab, label: "Alertas de Rede", icon: Zap, badge: 0 },
     { key: "avarias" as Tab, label: "Avarias", icon: AlertOctagon, badge: pendingAvariasCount },
     { key: "contact" as Tab, label: "Mensagens", icon: Mail, badge: unreadMessagesCount },
+    { key: "media" as Tab, label: "Media", icon: ImageIcon, badge: 0 },
   ];
 
   return (
@@ -969,6 +1073,98 @@ export default function CMSDashboard() {
         </GlassPanel>
       )}
 
+      {/* ── MEDIA TAB ───────────────────────────────────────────────────────── */}
+      {tab === "media" && (
+        <GlassPanel>
+          <div className="p-6">
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+              <h2 className="text-2xl font-bold text-slate-100">
+                Biblioteca de Media <span className="text-slate-500 text-base font-normal">({mediaTotal})</span>
+              </h2>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={checkOrphans}
+                  disabled={orphansChecking}
+                  className="px-4 py-2 rounded-lg border border-amber-500/40 text-amber-400 hover:bg-amber-500/10 transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Search className="w-4 h-4" />
+                  {orphansChecking ? "A verificar…" : "Verificar Órfãos"}
+                </button>
+              </div>
+            </div>
+
+            <ListToolbar
+              q={mediaQ}
+              onQChange={setMediaQ}
+              placeholder="Pesquisar por nome do ficheiro…"
+              status={mediaStatus}
+              onStatusChange={setMediaStatus}
+              statusOptions={[
+                { value: "image", label: "Imagens" },
+                { value: "pdf", label: "PDFs" },
+              ]}
+              sort={mediaSort}
+              onSortChange={setMediaSort}
+              sortOptions={[
+                { value: "newest", label: "Mais recentes" },
+                { value: "oldest", label: "Mais antigos" },
+                { value: "largest", label: "Maiores primeiro" },
+                { value: "smallest", label: "Menores primeiro" },
+              ]}
+            />
+
+            {orphans.length > 0 && (
+              <div className="mb-4 p-4 rounded-xl border border-amber-500/40 bg-amber-500/10">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p className="text-amber-300 font-bold mb-1">
+                      {orphans.length} ficheiro(s) órfão(s) encontrado(s)
+                    </p>
+                    <p className="text-amber-200/80 text-sm mb-3">
+                      Estes ficheiros não estão referenciados por nenhuma notícia ou serviço. Pode eliminá-los para libertar espaço.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => askConfirm({
+                        title: "Eliminar ficheiros órfãos?",
+                        message: `Esta acção vai eliminar ${orphans.length} ficheiro(s) permanentemente. Confirmar?`,
+                        onConfirm: cleanupOrphans,
+                      })}
+                      className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-sm font-bold transition-colors"
+                    >
+                      Eliminar Órfãos
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {mediaLoading ? (
+              <div className="text-center py-12 text-slate-500">A carregar…</div>
+            ) : mediaList.length === 0 ? (
+              <div className="text-center py-12 text-slate-500">
+                {mediaQ || mediaStatus ? "Nenhum resultado." : "Sem ficheiros carregados."}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {mediaList.map((asset) => (
+                  <MediaCard
+                    key={asset.id}
+                    asset={asset}
+                    onCopyUrl={handleCopyUrl}
+                    onDelete={handleDeleteMedia}
+                  />
+                ))}
+              </div>
+            )}
+
+            <Pagination page={mediaPage} total={mediaTotal} limit={LIMIT} onPageChange={setMediaPage} />
+          </div>
+        </GlassPanel>
+      )}
+
       {/* ── NEWS MODAL ──────────────────────────────────────────────────────── */}
       <Modal open={newsModal} onClose={() => setNewsModal(false)} title={editingNews ? "Editar Notícia" : "Nova Notícia"}>
         <div className="space-y-5">
@@ -988,7 +1184,21 @@ export default function CMSDashboard() {
             <div className="flex gap-3">
               <Input value={newsForm.imgUrl} onChange={(e) => setNewsForm({ ...newsForm, imgUrl: e.target.value })} placeholder="https://... ou /uploads/..." />
               <FileUpload onUploaded={(url) => setNewsForm({ ...newsForm, imgUrl: url })} />
+              <button
+                type="button"
+                onClick={() => setNewsPickerOpen(true)}
+                className="px-4 py-3 rounded-xl text-sm font-bold text-orange-400 whitespace-nowrap transition-colors"
+                style={{ background: "rgba(249,115,22,0.12)", border: "2px solid rgba(249,115,22,0.3)" }}
+              >
+                Da Biblioteca
+              </button>
             </div>
+            {newsForm.imgUrl && (
+              <div className="mt-2 rounded-lg overflow-hidden border border-white/10 max-w-xs">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={newsForm.imgUrl} alt="Pré-visualização" className="w-full h-auto" />
+              </div>
+            )}
           </Field>
           <label className="flex items-center gap-3 cursor-pointer">
             <input type="checkbox" checked={newsForm.active} onChange={(e) => setNewsForm({ ...newsForm, active: e.target.checked })} className="w-4 h-4 accent-orange-500" />
@@ -1019,6 +1229,14 @@ export default function CMSDashboard() {
             <div className="flex gap-3">
               <Input value={serviceForm.filePath} onChange={(e) => setServiceForm({ ...serviceForm, filePath: e.target.value })} placeholder="/uploads/formulario.pdf" />
               <FileUpload onUploaded={(url) => setServiceForm({ ...serviceForm, filePath: url })} />
+              <button
+                type="button"
+                onClick={() => setServicesPickerOpen(true)}
+                className="px-4 py-3 rounded-xl text-sm font-bold text-orange-400 whitespace-nowrap transition-colors"
+                style={{ background: "rgba(249,115,22,0.12)", border: "2px solid rgba(249,115,22,0.3)" }}
+              >
+                Da Biblioteca
+              </button>
             </div>
           </Field>
           <label className="flex items-center gap-3 cursor-pointer">
@@ -1101,6 +1319,20 @@ export default function CMSDashboard() {
           </div>
         )}
       </Modal>
+
+      {/* ── MEDIA PICKERS ───────────────────────────────────────────────────── */}
+      <MediaPicker
+        open={newsPickerOpen}
+        filter="image"
+        onPick={(asset) => setNewsForm((prev) => ({ ...prev, imgUrl: asset.url }))}
+        onClose={() => setNewsPickerOpen(false)}
+      />
+      <MediaPicker
+        open={servicesPickerOpen}
+        filter="pdf"
+        onPick={(asset) => setServiceForm((prev) => ({ ...prev, filePath: asset.url }))}
+        onClose={() => setServicesPickerOpen(false)}
+      />
 
       {/* ── CONFIRM DIALOG ──────────────────────────────────────────────────── */}
       <ConfirmDialog

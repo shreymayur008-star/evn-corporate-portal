@@ -72,3 +72,14 @@ model ContactMessage {
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 }
+
+model MediaAsset {
+  id           Int      @id @default(autoincrement())
+  filename     String   @unique
+  originalName String
+  url          String   @unique
+  mimeType     String
+  sizeBytes    Int
+  uploadedBy   String?
+  createdAt    DateTime @default(now())
+}
