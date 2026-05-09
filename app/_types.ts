@@ -9,7 +9,9 @@ export interface ApiNewsArticle {
   title: string;
   shortDesc: string;
   fullText: string;
-  imgUrl: string;
+  imgUrl: string | null;
+  status: "DRAFT" | "SCHEDULED" | "PUBLISHED" | "ARCHIVED";
+  publishAt: string | null;
 }
 
 export interface ApiServiceDoc {

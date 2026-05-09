@@ -6,8 +6,15 @@ import { prisma } from "@/lib/db";
 
 export async function GET() {
   try {
+    const now = new Date();
     const news = await prisma.newsArticle.findMany({
-      where: { active: true },
+      where: {
+        status: "PUBLISHED",
+        OR: [
+          { publishAt: null },
+          { publishAt: { lte: now } },
+        ],
+      },
       orderBy: { publishedAt: "desc" },
     });
     return NextResponse.json(news);

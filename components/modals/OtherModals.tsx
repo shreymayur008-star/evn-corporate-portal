@@ -57,16 +57,18 @@ export function ProjectosModal() {
 export function NewsReaderModal({ article, closeModal }: { article: ApiNewsArticle; closeModal: () => void }) {
   return (
     <div>
-      <div className="relative h-72">
-        <img src={article.imgUrl} className="w-full h-full object-cover" alt="Notícia EVN" />
-        <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#08080c] to-transparent pointer-events-none" />
-      </div>
-      <div className="p-10 relative -mt-16 rounded-t-[2rem]" style={{ background: "#08080c" }}>
+      {article.imgUrl && (
+        <div className="relative h-72">
+          <img src={article.imgUrl} className="w-full h-full object-cover" alt="Notícia EVN" />
+          <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#08080c] to-transparent pointer-events-none" />
+        </div>
+      )}
+      <div className={`p-10 ${article.imgUrl ? "relative -mt-16 rounded-t-[2rem]" : ""}`} style={{ background: "#08080c" }}>
         <span className="bg-orange-500 text-white text-xs px-3 py-1.5 rounded-full font-bold uppercase tracking-wider">{article.tag}</span>
         <h2 className="text-3xl font-black text-white mt-4 mb-6 leading-tight">{article.title}</h2>
         <div className="leading-relaxed text-lg">
           <p className="mb-6 font-medium text-slate-200">{article.shortDesc}</p>
-          <p className="mb-8 whitespace-pre-line text-slate-400">{article.fullText}</p>
+          <div className="prose-evn mb-8" dangerouslySetInnerHTML={{ __html: article.fullText }} />
         </div>
         <button onClick={closeModal} className="w-full font-bold py-4 rounded-xl transition-colors text-slate-200" style={{ background: "rgba(255,255,255,0.08)" }}>Fechar Leitura</button>
       </div>

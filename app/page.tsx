@@ -30,9 +30,9 @@ import { Footer } from "@/components/sections/Footer";
 
 // ─── Fallback seed data ───────────────────────────────────────────────────────
 const NEWS_FALLBACK: ApiNewsArticle[] = [
-  { id: 1, tag: "Destaque",      title: "Administração da EVN visita províncias para monitorar reposição do sistema eléctrico.", shortDesc: "A EVN está no terreno para garantir a estabilidade da rede após os recentes eventos climáticos.", fullText: "Maputo — Em resposta aos recentes eventos climáticos severos, o Conselho de Administração da Eletricidade Vantara Nacional (EVN) iniciou uma visita de campo intensiva.", imgUrl: "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1200&q=80" },
-  { id: 2, tag: "Infraestrutura", title: "EVN necessita de 604 milhões de meticais para compensar danos das cheias.",           shortDesc: "Os fundos serão destinados à reconstrução urgente de subestações e linhas de média tensão.",  fullText: "A Eletricidade Vantara Nacional (EVN) anunciou hoje que será necessário um fundo de contingência de 604 milhões de meticais.", imgUrl: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=800&q=80" },
-  { id: 3, tag: "Cooperação",    title: "EVN estreita laços com parceiros internacionais para o desenvolvimento Nacional.",    shortDesc: "Novos acordos visam a expansão acelerada da rede elétrica para zonas rurais e industriais.",  fullText: "Num esforço contínuo para alcançar a eletrificação universal, a EVN assinou três novos memorandos de entendimento.", imgUrl: "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=400&q=80" },
+  { id: 1, tag: "Destaque",      title: "Administração da EVN visita províncias para monitorar reposição do sistema eléctrico.", shortDesc: "A EVN está no terreno para garantir a estabilidade da rede após os recentes eventos climáticos.", fullText: "Maputo — Em resposta aos recentes eventos climáticos severos, o Conselho de Administração da Eletricidade Vantara Nacional (EVN) iniciou uma visita de campo intensiva.", imgUrl: "https://images.unsplash.com/photo-1581092580497-e0d23cbdf1dc?auto=format&fit=crop&w=1200&q=80", status: "PUBLISHED", publishAt: null },
+  { id: 2, tag: "Infraestrutura", title: "EVN necessita de 604 milhões de meticais para compensar danos das cheias.",           shortDesc: "Os fundos serão destinados à reconstrução urgente de subestações e linhas de média tensão.",  fullText: "A Eletricidade Vantara Nacional (EVN) anunciou hoje que será necessário um fundo de contingência de 604 milhões de meticais.", imgUrl: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=800&q=80", status: "PUBLISHED", publishAt: null },
+  { id: 3, tag: "Cooperação",    title: "EVN estreita laços com parceiros internacionais para o desenvolvimento Nacional.",    shortDesc: "Novos acordos visam a expansão acelerada da rede elétrica para zonas rurais e industriais.",  fullText: "Num esforço contínuo para alcançar a eletrificação universal, a EVN assinou três novos memorandos de entendimento.", imgUrl: "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?auto=format&fit=crop&w=400&q=80", status: "PUBLISHED", publishAt: null },
 ];
 const SERVICES_FALLBACK: ApiServiceDoc[] = [
   { id: 1, docId: "mod-01",    title: "Formulário de Mudança de Titularidade", fileSize: "1.2 MB", description: "Acompanhar com cópia de BI e título de propriedade.", filePath: "" },
@@ -197,7 +197,7 @@ export default function EVNCorporatePortal() {
               {newsData[0] && (
                 <div className="lg:col-span-2 group cursor-pointer select-none" onClick={() => openNewsArticle(newsData[0].id)}>
                   <div className="overflow-hidden rounded-3xl mb-4 relative h-[400px] shadow-lg">
-                    <img src={newsData[0].imgUrl} alt="EVN News" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                    <img src={newsData[0].imgUrl ?? undefined} alt="EVN News" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                     <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent pointer-events-none" />
                     <div className="absolute bottom-0 left-0 p-8"><span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full mb-3 inline-block">{newsData[0].tag}</span><h3 className="text-3xl font-bold text-white mb-2 group-hover:text-orange-400 transition-colors leading-tight">{newsData[0].title}</h3><p className="text-slate-300 line-clamp-2">{newsData[0].shortDesc}</p></div>
                   </div>
@@ -206,7 +206,7 @@ export default function EVNCorporatePortal() {
               <div className="flex flex-col gap-6">
                 {newsData.slice(1).map(news => (
                   <div key={news.id} className="group cursor-pointer select-none flex flex-col gap-3" onClick={() => openNewsArticle(news.id)}>
-                    <div className="w-full h-40 rounded-2xl overflow-hidden"><img src={news.imgUrl} alt="EVN News" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>
+                    <div className="w-full h-40 rounded-2xl overflow-hidden"><img src={news.imgUrl ?? undefined} alt="EVN News" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>
                     <div><span className="text-orange-500 text-[10px] font-bold uppercase tracking-wider mb-1 inline-block">{news.tag}</span><h4 className="font-bold text-white text-lg leading-tight group-hover:text-orange-400 transition-colors">{news.title}</h4></div>
                   </div>
                 ))}

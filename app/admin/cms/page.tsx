@@ -19,10 +19,11 @@ import { useDebounce } from "@/components/hooks/useDebounce";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tab = "news" | "services" | "alerts" | "avarias" | "contact" | "media";
+type NewsStatus = "DRAFT" | "SCHEDULED" | "PUBLISHED" | "ARCHIVED";
 
 interface NewsArticle {
   id: number; tag: string; title: string; shortDesc: string;
-  fullText: string; imgUrl: string; active: boolean;
+  fullText: string; imgUrl: string | null; status: NewsStatus; publishAt: string | null;
 }
 interface ServiceDocument {
   id: number; docId: string; title: string; fileSize: string;
@@ -210,7 +211,9 @@ export default function CMSDashboard() {
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsModal, setNewsModal] = useState(false);
   const [editingNews, setEditingNews] = useState<NewsArticle | null>(null);
-  const [newsForm, setNewsForm] = useState({ tag: "", title: "", shortDesc: "", fullText: "", imgUrl: "", active: true });
+  const [newsForm, setNewsForm] = useState({ tag: "", title: "", shortDesc: "", fullText: "", imgUrl: "", status: "DRAFT" as NewsStatus, publishAt: "" });
+  const [newsErrors, setNewsErrors] = useState<Record<string, string>>({});
+  const [newsPreviewing, setNewsPreviewing] = useState(false);
 
   // ── Services state ──────────────────────────────────────────────────────────
   const [servicesList, setServicesList] = useState<ServiceDocument[]>([]);
@@ -435,20 +438,49 @@ export default function CMSDashboard() {
   useEffect(() => { setMediaPage(1); }, [debouncedMediaQ, mediaStatus, mediaSort]);
 
   // ── News CRUD ───────────────────────────────────────────────────────────────
+  const validateNewsForm = (form: typeof newsForm): Record<string, string> => {
+    const errors: Record<string, string> = {};
+    if (form.tag.trim().length < 1) errors.tag = "Categoria obrigatória.";
+    if (form.title.trim().length < 3) errors.title = "Título demasiado curto (mínimo 3 caracteres).";
+    if (form.shortDesc.trim().length < 10) errors.shortDesc = "Resumo demasiado curto (mínimo 10 caracteres).";
+    if (form.fullText.trim().length < 20) errors.fullText = "Conteúdo demasiado curto (mínimo 20 caracteres).";
+    if (form.status === "SCHEDULED" && !form.publishAt) {
+      errors.publishAt = "Data de publicação obrigatória para artigos agendados.";
+    }
+    if (form.status === "SCHEDULED" && form.publishAt && new Date(form.publishAt) <= new Date()) {
+      errors.publishAt = "Data deve ser no futuro.";
+    }
+    return errors;
+  };
+
   const openNewsCreate = () => {
     setEditingNews(null);
-    setNewsForm({ tag: "", title: "", shortDesc: "", fullText: "", imgUrl: "", active: true });
+    setNewsForm({ tag: "", title: "", shortDesc: "", fullText: "", imgUrl: "", status: "DRAFT", publishAt: "" });
+    setNewsErrors({});
     setNewsModal(true);
   };
   const openNewsEdit = (n: NewsArticle) => {
     setEditingNews(n);
-    setNewsForm({ tag: n.tag, title: n.title, shortDesc: n.shortDesc, fullText: n.fullText, imgUrl: n.imgUrl, active: n.active });
+    const publishAt = n.publishAt ? new Date(n.publishAt).toISOString().slice(0, 16) : "";
+    setNewsForm({ tag: n.tag, title: n.title, shortDesc: n.shortDesc, fullText: n.fullText, imgUrl: n.imgUrl ?? "", status: n.status, publishAt });
+    setNewsErrors({});
     setNewsModal(true);
   };
   const saveNews = async () => {
+    const errors = validateNewsForm(newsForm);
+    setNewsErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      toast.error("Corrija os campos assinalados.");
+      return;
+    }
     const method = editingNews ? "PUT" : "POST";
     const url = editingNews ? `/api/admin/news/${editingNews.id}` : "/api/admin/news";
-    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(newsForm) });
+    const payload = {
+      ...newsForm,
+      imgUrl: newsForm.imgUrl || null,
+      publishAt: newsForm.publishAt ? new Date(newsForm.publishAt).toISOString() : null,
+    };
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     if (res.ok) { toast.success(editingNews ? "Notícia atualizada." : "Notícia criada."); setNewsModal(false); loadNews(); }
     else toast.error("Erro ao guardar.");
   };
@@ -734,8 +766,10 @@ export default function CMSDashboard() {
               status={newsStatus}
               onStatusChange={setNewsStatus}
               statusOptions={[
-                { value: "active", label: "Activos" },
-                { value: "inactive", label: "Inactivos" },
+                { value: "DRAFT",     label: "Rascunhos" },
+                { value: "PUBLISHED", label: "Publicados" },
+                { value: "SCHEDULED", label: "Agendados" },
+                { value: "ARCHIVED",  label: "Arquivados" },
               ]}
               sort={newsSort}
               onSortChange={setNewsSort}
@@ -760,9 +794,12 @@ export default function CMSDashboard() {
                       <img src={n.imgUrl} alt="" className="w-16 h-16 rounded-xl object-cover shrink-0" />
                     )}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="text-xs font-bold text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded-full">{n.tag}</span>
-                        {!n.active && <span className="text-xs font-bold text-slate-500 bg-white/5 px-2 py-0.5 rounded-full">Inativo</span>}
+                        {n.status === "DRAFT" && <span className="text-xs px-2 py-0.5 rounded bg-slate-500/20 text-slate-400 font-bold uppercase">Rascunho</span>}
+                        {n.status === "PUBLISHED" && <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold uppercase">Publicado</span>}
+                        {n.status === "SCHEDULED" && <span className="text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 font-bold uppercase">Agendado{n.publishAt ? ` · ${new Date(n.publishAt).toLocaleString("pt-PT")}` : ""}</span>}
+                        {n.status === "ARCHIVED" && <span className="text-xs px-2 py-0.5 rounded bg-zinc-500/20 text-zinc-500 font-bold uppercase">Arquivado</span>}
                       </div>
                       <p className="font-bold text-white text-sm leading-snug truncate">{n.title}</p>
                       <p className="text-xs text-slate-500 mt-1 line-clamp-1">{n.shortDesc}</p>
@@ -1166,19 +1203,45 @@ export default function CMSDashboard() {
       )}
 
       {/* ── NEWS MODAL ──────────────────────────────────────────────────────── */}
-      <Modal open={newsModal} onClose={() => setNewsModal(false)} title={editingNews ? "Editar Notícia" : "Nova Notícia"}>
+      <Modal open={newsModal} onClose={() => { setNewsModal(false); setNewsPreviewing(false); }} title={editingNews ? "Editar Notícia" : "Nova Notícia"}>
         <div className="space-y-5">
           <Field label="Tag (ex: Destaque)">
-            <Input value={newsForm.tag} onChange={(e) => setNewsForm({ ...newsForm, tag: e.target.value })} placeholder="Destaque" />
+            <Input
+              value={newsForm.tag}
+              onChange={(e) => { setNewsForm({ ...newsForm, tag: e.target.value }); if (newsErrors.tag) setNewsErrors(prev => ({ ...prev, tag: "" })); }}
+              placeholder="Destaque"
+              className={newsErrors.tag ? "border-red-500" : ""}
+            />
+            {newsErrors.tag && <p className="text-red-400 text-xs mt-1">{newsErrors.tag}</p>}
           </Field>
           <Field label="Título">
-            <Input value={newsForm.title} onChange={(e) => setNewsForm({ ...newsForm, title: e.target.value })} placeholder="Título da notícia" />
+            <Input
+              value={newsForm.title}
+              onChange={(e) => { setNewsForm({ ...newsForm, title: e.target.value }); if (newsErrors.title) setNewsErrors(prev => ({ ...prev, title: "" })); }}
+              placeholder="Título da notícia"
+              className={newsErrors.title ? "border-red-500" : ""}
+            />
+            {newsErrors.title && <p className="text-red-400 text-xs mt-1">{newsErrors.title}</p>}
           </Field>
           <Field label="Resumo">
-            <Textarea rows={2} value={newsForm.shortDesc} onChange={(e) => setNewsForm({ ...newsForm, shortDesc: e.target.value })} placeholder="Descrição breve" />
+            <Textarea
+              rows={2}
+              value={newsForm.shortDesc}
+              onChange={(e) => { setNewsForm({ ...newsForm, shortDesc: e.target.value }); if (newsErrors.shortDesc) setNewsErrors(prev => ({ ...prev, shortDesc: "" })); }}
+              placeholder="Descrição breve"
+              className={newsErrors.shortDesc ? "border-red-500" : ""}
+            />
+            {newsErrors.shortDesc && <p className="text-red-400 text-xs mt-1">{newsErrors.shortDesc}</p>}
           </Field>
-          <Field label="Texto Completo">
-            <Textarea rows={5} value={newsForm.fullText} onChange={(e) => setNewsForm({ ...newsForm, fullText: e.target.value })} placeholder="Conteúdo completo da notícia" />
+          <Field label="Conteúdo">
+            <Textarea
+              rows={5}
+              value={newsForm.fullText}
+              onChange={(e) => { setNewsForm({ ...newsForm, fullText: e.target.value }); if (newsErrors.fullText) setNewsErrors(prev => ({ ...prev, fullText: "" })); }}
+              placeholder="Conteúdo completo da notícia"
+              className={newsErrors.fullText ? "border-red-500" : ""}
+            />
+            {newsErrors.fullText && <p className="text-red-400 text-xs mt-1">{newsErrors.fullText}</p>}
           </Field>
           <Field label="URL / Caminho da Imagem">
             <div className="flex gap-3">
@@ -1200,14 +1263,108 @@ export default function CMSDashboard() {
               </div>
             )}
           </Field>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input type="checkbox" checked={newsForm.active} onChange={(e) => setNewsForm({ ...newsForm, active: e.target.checked })} className="w-4 h-4 accent-orange-500" />
-            <span className="text-sm font-bold text-slate-300">Publicada (visível no portal)</span>
-          </label>
-          <button onClick={saveNews} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
-            <CheckCircle2 className="w-5 h-5" /> {editingNews ? "Guardar Alterações" : "Publicar Notícia"}
-          </button>
+          <Field label="Estado">
+            <div className="flex flex-wrap gap-2">
+              {([
+                { value: "DRAFT",     label: "Rascunho",  color: "slate" },
+                { value: "PUBLISHED", label: "Publicado", color: "emerald" },
+                { value: "SCHEDULED", label: "Agendado",  color: "orange" },
+                { value: "ARCHIVED",  label: "Arquivado", color: "zinc" },
+              ] as const).map((opt) => {
+                const isActive = newsForm.status === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setNewsForm(prev => ({ ...prev, status: opt.value }))}
+                    className={`px-4 py-2 rounded-lg border-2 transition-colors text-sm font-medium ${
+                      isActive
+                        ? opt.color === "emerald" ? "border-emerald-500 bg-emerald-500/15 text-emerald-300"
+                        : opt.color === "orange"  ? "border-orange-500 bg-orange-500/15 text-orange-300"
+                        : opt.color === "zinc"    ? "border-zinc-500 bg-zinc-500/15 text-zinc-300"
+                        :                           "border-slate-500 bg-slate-500/15 text-slate-300"
+                        : "border-white/10 text-slate-400 hover:bg-white/5"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </Field>
+          {newsForm.status === "SCHEDULED" && (
+            <Field label="Publicar em">
+              <input
+                type="datetime-local"
+                value={newsForm.publishAt}
+                onChange={(e) => { setNewsForm(prev => ({ ...prev, publishAt: e.target.value })); if (newsErrors.publishAt) setNewsErrors(prev => ({ ...prev, publishAt: "" })); }}
+                className={`w-full p-3 rounded-xl outline-none text-slate-100 transition-colors border-2 ${
+                  newsErrors.publishAt ? "border-red-500" : "border-white/10 focus:border-orange-500"
+                }`}
+                style={{ background: "rgba(255,255,255,0.05)" }}
+              />
+              {newsErrors.publishAt && <p className="text-red-400 text-xs mt-1">{newsErrors.publishAt}</p>}
+            </Field>
+          )}
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              onClick={() => setNewsPreviewing(true)}
+              className="px-4 py-2 rounded-lg border border-white/10 text-slate-300 hover:bg-white/5 transition-colors text-sm font-medium"
+            >
+              Pré-visualizar
+            </button>
+            <button onClick={saveNews} className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2">
+              <CheckCircle2 className="w-5 h-5" /> {editingNews ? "Guardar Alterações" : "Publicar Notícia"}
+            </button>
+          </div>
         </div>
+
+        {/* ── PREVIEW OVERLAY ── */}
+        <AnimatePresence>
+          {newsPreviewing && (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[110] overflow-y-auto p-4 sm:p-8"
+              style={{ background: "rgba(0,0,0,0.85)", backdropFilter: "blur(12px)" }}
+              onClick={() => setNewsPreviewing(false)}
+            >
+              <motion.article
+                initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 20, opacity: 0 }}
+                className="max-w-3xl mx-auto rounded-2xl overflow-hidden relative"
+                style={{ background: "#09090b", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 32px 64px rgba(0,0,0,0.7)" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setNewsPreviewing(false)}
+                  className="absolute top-4 right-4 z-10 p-2 rounded-lg text-slate-300 hover:bg-white/10 transition-colors"
+                  style={{ background: "rgba(0,0,0,0.5)", backdropFilter: "blur(4px)" }}
+                  aria-label="Fechar pré-visualização"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                {newsForm.imgUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={newsForm.imgUrl} alt={newsForm.title} className="w-full h-64 object-cover" />
+                )}
+                <div className="p-6 sm:p-10">
+                  <span className="inline-block px-3 py-1 rounded bg-orange-500/20 text-orange-400 font-bold uppercase text-xs tracking-widest mb-4">
+                    {newsForm.tag || "Sem categoria"}
+                  </span>
+                  <h1 className="text-3xl sm:text-4xl font-black text-slate-100 mb-3 leading-tight">
+                    {newsForm.title || "Sem título"}
+                  </h1>
+                  <p className="text-lg text-slate-400 mb-6">{newsForm.shortDesc || "Sem resumo"}</p>
+                  <div className="prose-evn whitespace-pre-line text-slate-400">{newsForm.fullText || "Sem conteúdo."}</div>
+                  <p className="text-sm text-slate-500 mt-8 pt-4 border-t border-white/10">
+                    Pré-visualização — não publicado.
+                  </p>
+                </div>
+              </motion.article>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </Modal>
 
       {/* ── SERVICES MODAL ──────────────────────────────────────────────────── */}

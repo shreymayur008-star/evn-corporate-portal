@@ -6,15 +6,23 @@ datasource db {
   provider = "postgresql"
 }
 
+enum NewsStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
 model NewsArticle {
-  id          Int      @id @default(autoincrement())
+  id          Int        @id @default(autoincrement())
   tag         String
   title       String
   shortDesc   String
-  fullText    String   @db.Text
-  imgUrl      String
-  publishedAt DateTime @default(now())
-  active      Boolean  @default(true)
+  fullText    String     @db.Text
+  imgUrl      String?
+  publishedAt DateTime   @default(now())
+  publishAt   DateTime?
+  status      NewsStatus @default(DRAFT)
 }
 
 model ServiceDocument {
