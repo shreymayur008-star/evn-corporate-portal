@@ -6,6 +6,7 @@ import type { ApiServiceDoc, DownloadState } from "@/app/_types";
 export function ServicosModal({
   servicesList,
   onDownload,
+  setDownload,
   loading,
 }: {
   servicesList: ApiServiceDoc[];
@@ -13,7 +14,6 @@ export function ServicosModal({
   setDownload: (s: DownloadState) => void;
   loading: boolean;
 }) {
-  void onDownload;
   return (
     <div className="p-10">
       <div className="flex items-center gap-4 mb-8">
@@ -40,6 +40,7 @@ export function ServicosModal({
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(59,130,246,0.4)"; e.currentTarget.style.background = "rgba(59,130,246,0.04)"; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+            onClick={() => onDownload(item.title, "FORMULARIO", setDownload, () => {})}
           >
             <div className="relative z-10 flex items-center justify-between">
               <div>

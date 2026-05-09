@@ -76,3 +76,27 @@ html {
   background: rgba(249, 115, 22, 0.3);
   border-radius: 3px;
 }
+
+/* Cursor hygiene — prevent child elements from overriding parent cursor intent */
+button,
+a,
+[role="button"] {
+  cursor: pointer;
+}
+button *,
+a *,
+[role="button"] * {
+  cursor: inherit !important;
+  pointer-events: none;
+}
+/* Exception: inputs/textareas inside labels need their own cursor */
+label input,
+label textarea,
+label select {
+  pointer-events: auto;
+  cursor: text;
+}
+button:disabled,
+button[disabled] {
+  cursor: not-allowed;
+}
