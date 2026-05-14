@@ -16,6 +16,26 @@ interface RichTextEditorProps {
   error?: boolean;
 }
 
+function ToolbarButton({
+  onClick, active, disabled, children, title,
+}: {
+  onClick: () => void; active?: boolean; disabled?: boolean; children: React.ReactNode; title: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={`p-2 rounded transition-colors ${
+        active ? "bg-orange-500/20 text-orange-400" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+      } disabled:opacity-30 disabled:cursor-not-allowed`}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function RichTextEditor({ value, onChange, placeholder, error }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [
@@ -60,24 +80,6 @@ export default function RichTextEditor({ value, onChange, placeholder, error }: 
   }, [editor]);
 
   if (!editor) return null;
-
-  const ToolbarButton = ({
-    onClick, active, disabled, children, title,
-  }: {
-    onClick: () => void; active?: boolean; disabled?: boolean; children: React.ReactNode; title: string;
-  }) => (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={`p-2 rounded transition-colors ${
-        active ? "bg-orange-500/20 text-orange-400" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
-      } disabled:opacity-30 disabled:cursor-not-allowed`}
-    >
-      {children}
-    </button>
-  );
 
   return (
     <div className={`rounded-xl border-2 overflow-hidden transition-colors ${error ? "border-red-500" : "border-white/10 focus-within:border-orange-500"}`}

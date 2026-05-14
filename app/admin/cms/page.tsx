@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Newspaper, FileText, Zap, LogOut, Plus, Pencil, Trash2,
   X, Upload, Loader2, CheckCircle2, AlertOctagon, Mail, MapPin,
-  Image as ImageIcon, AlertTriangle, Search,
+  Image as ImageIcon, AlertTriangle, Search, ExternalLink,
 } from "lucide-react";
+import PdfLink from "@/components/pdf/PdfLink";
 import MediaCard from "@/components/admin/MediaCard";
 import MediaPicker from "@/components/admin/MediaPicker";
 import RichTextEditor from "@/components/admin/RichTextEditor";
@@ -193,6 +194,7 @@ function Textarea({ className, style, ...rest }: React.TextareaHTMLAttributes<HT
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
 export default function CMSDashboard() {
+  const { data: session } = useSession();
   const [tab, setTab] = useState<Tab>("news");
 
   // ── Confirm dialog state ────────────────────────────────────────────────────
@@ -263,6 +265,12 @@ export default function CMSDashboard() {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [openMessage, setOpenMessage] = useState<ContactMessageRow | null>(null);
+
+  // ── Detail view states ──────────────────────────────────────────────────────
+  const [viewingArticle, setViewingArticle] = useState<NewsArticle | null>(null);
+  const [viewingAlert, setViewingAlert] = useState<NetworkAlert | null>(null);
+  const [viewingAvaria, setViewingAvaria] = useState<AvariaReportRow | null>(null);
+  const [viewingAvariaStatus, setViewingAvariaStatus] = useState<"PENDING" | "IN_PROGRESS" | "RESOLVED">("PENDING");
 
   // ── Media state ─────────────────────────────────────────────────────────────
   const [mediaList, setMediaList] = useState<MediaAssetRow[]>([]);
@@ -429,6 +437,25 @@ export default function CMSDashboard() {
   useEffect(() => { loadAvarias(); }, [loadAvarias]);
   useEffect(() => { loadMessages(); }, [loadMessages]);
   useEffect(() => { loadMedia(); }, [loadMedia]);
+
+  // ── Keyboard shortcuts ──────────────────────────────────────────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setViewingArticle(null);
+        setViewingAlert(null);
+        setViewingAvaria(null);
+        setOpenMessage(null);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        const searchInput = document.querySelector<HTMLInputElement>('input[placeholder*="Pesquisar"]');
+        searchInput?.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   // ── Reset page to 1 when filters change ────────────────────────────────────
   useEffect(() => { setNewsPage(1); }, [debouncedNewsQ, newsStatus, newsSort]);
@@ -713,15 +740,38 @@ export default function CMSDashboard() {
       <div className="flex items-center justify-between mb-10">
         <div>
           <h1 className="text-3xl font-black text-white">EVN CMS</h1>
-          <p className="text-slate-500 text-sm mt-1">Portal Administrativo de Conteúdos</p>
+          <p className="text-slate-500 text-sm mt-1">
+            Portal Administrativo · {new Date().toLocaleDateString("pt-PT", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+          </p>
         </div>
-        <button
-          onClick={() => signOut({ callbackUrl: "/admin/login" })}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white transition-colors"
-          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
-        >
-          <LogOut className="w-4 h-4" /> Sair
-        </button>
+        <div className="flex items-center gap-3">
+          {session?.user?.email && (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10">
+              <div className="w-6 h-6 rounded-full bg-orange-500/20 border border-orange-500/40 flex items-center justify-center">
+                <span className="text-orange-400 text-xs font-bold uppercase">
+                  {session.user.email.charAt(0)}
+                </span>
+              </div>
+              <span className="text-slate-400 text-sm">{session.user.email}</span>
+            </div>
+          )}
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 text-slate-400 hover:text-orange-400 hover:border-orange-500/30 transition-colors text-sm font-medium"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Ver Portal
+          </a>
+          <button
+            onClick={() => signOut({ callbackUrl: "/admin/login" })}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white transition-colors"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            <LogOut className="w-4 h-4" /> Sair
+          </button>
+        </div>
       </div>
 
       {/* Tab Nav */}
@@ -800,23 +850,29 @@ export default function CMSDashboard() {
               <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
                 {newsList.map((n) => (
                   <div key={n.id} className="flex items-start gap-4 py-4 group hover:bg-white/[0.02] transition-colors rounded-xl px-2">
-                    {n.imgUrl && (
-                      <img src={n.imgUrl} alt="" className="w-16 h-16 rounded-xl object-cover shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="text-xs font-bold text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded-full">{n.tag}</span>
-                        {n.status === "DRAFT" && <span className="text-xs px-2 py-0.5 rounded bg-slate-500/20 text-slate-400 font-bold uppercase">Rascunho</span>}
-                        {n.status === "PUBLISHED" && <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold uppercase">Publicado</span>}
-                        {n.status === "SCHEDULED" && <span className="text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 font-bold uppercase">Agendado{n.publishAt ? ` · ${new Date(n.publishAt).toLocaleString("pt-PT")}` : ""}</span>}
-                        {n.status === "ARCHIVED" && <span className="text-xs px-2 py-0.5 rounded bg-zinc-500/20 text-zinc-500 font-bold uppercase">Arquivado</span>}
+                    <div
+                      className="flex-1 flex items-start gap-4 cursor-pointer"
+                      onClick={() => setViewingArticle(n)}
+                      title="Clique para ver detalhes"
+                    >
+                      {n.imgUrl && (
+                        <img src={n.imgUrl} alt="" className="w-16 h-16 rounded-xl object-cover shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-xs font-bold text-orange-400 bg-orange-400/10 px-2 py-0.5 rounded-full">{n.tag}</span>
+                          {n.status === "DRAFT" && <span className="text-xs px-2 py-0.5 rounded bg-slate-500/20 text-slate-400 font-bold uppercase">Rascunho</span>}
+                          {n.status === "PUBLISHED" && <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold uppercase">Publicado</span>}
+                          {n.status === "SCHEDULED" && <span className="text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 font-bold uppercase">Agendado{n.publishAt ? ` · ${new Date(n.publishAt).toLocaleString("pt-PT")}` : ""}</span>}
+                          {n.status === "ARCHIVED" && <span className="text-xs px-2 py-0.5 rounded bg-zinc-500/20 text-zinc-500 font-bold uppercase">Arquivado</span>}
+                        </div>
+                        <p className="font-bold text-white text-sm leading-snug truncate">{n.title}</p>
+                        <p className="text-xs text-slate-500 mt-1 line-clamp-1">{n.shortDesc}</p>
                       </div>
-                      <p className="font-bold text-white text-sm leading-snug truncate">{n.title}</p>
-                      <p className="text-xs text-slate-500 mt-1 line-clamp-1">{n.shortDesc}</p>
                     </div>
                     <div className="flex gap-2 shrink-0">
-                      <button onClick={() => openNewsEdit(n)} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
-                      <button onClick={() => deleteNews(n.id)} className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); openNewsEdit(n); }} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); deleteNews(n.id); }} className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
                 ))}
@@ -882,7 +938,13 @@ export default function CMSDashboard() {
                       <p className="font-bold text-white text-sm">{s.title}</p>
                       <p className="text-xs text-slate-500 mt-0.5">{s.fileSize} · {s.description}</p>
                     </div>
-                    <div className="flex gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0">
+                      <PdfLink
+                        type="FORMULARIO"
+                        filename={s.title}
+                        label="Pré-visualizar"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700/50 border border-white/10 text-slate-400 hover:text-orange-400 hover:border-orange-500/30 transition-colors"
+                      />
                       <button onClick={() => openServiceEdit(s)} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
                       <button onClick={() => deleteService(s.id)} className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Trash2 className="w-4 h-4" /></button>
                     </div>
@@ -947,13 +1009,17 @@ export default function CMSDashboard() {
                 {alertsList.map((a) => (
                   <div key={a.id} className="flex items-start gap-4 py-4 hover:bg-white/[0.02] transition-colors rounded-xl px-2">
                     <AlertBadge type={a.type} />
-                    <div className="flex-1 min-w-0">
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => setViewingAlert(a)}
+                      title="Clique para ver detalhes"
+                    >
                       <p className="font-bold text-white text-sm">{a.title}</p>
                       <p className="text-xs text-slate-500 mt-0.5">{a.zone} · {a.date} · {a.duration}</p>
                     </div>
                     <div className="flex gap-2 shrink-0">
-                      <button onClick={() => openAlertEdit(a)} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
-                      <button onClick={() => deleteAlert(a.id)} className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Trash2 className="w-4 h-4" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); openAlertEdit(a); }} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); deleteAlert(a.id); }} className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
                 ))}
@@ -1013,7 +1079,11 @@ export default function CMSDashboard() {
                 {avariasList.map((a) => (
                   <div key={a.id} className="flex items-start gap-4 py-4 hover:bg-white/[0.02] transition-colors rounded-xl px-2">
                     {/* Left: type + description */}
-                    <div className="flex-1 min-w-0">
+                    <div
+                      className="flex-1 min-w-0 cursor-pointer"
+                      onClick={() => { setViewingAvaria(a); setViewingAvariaStatus(a.status); }}
+                      title="Clique para ver detalhes"
+                    >
                       <div className="flex items-center gap-2 mb-2">
                         <span className="bg-orange-500/20 border border-orange-500/40 text-orange-400 px-2 py-0.5 rounded text-xs uppercase font-bold">
                           {a.type}
@@ -1031,14 +1101,18 @@ export default function CMSDashboard() {
                       <p className="text-xs text-slate-400 font-mono">
                         {a.lat.toFixed(6)}, {a.lng.toFixed(6)}
                       </p>
-                      <a
-                        href={`https://www.google.com/maps?q=${a.lat},${a.lng}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors mt-1"
-                      >
-                        <MapPin className="w-3 h-3" /> Ver no mapa
-                      </a>
+                      {(a.lat !== 0 || a.lng !== 0) ? (
+                        <a
+                          href={`https://www.google.com/maps?q=${a.lat},${a.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors mt-1"
+                        >
+                          <MapPin className="w-3 h-3" /> Ver no mapa
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-600 mt-1 block">GPS não capturado</span>
+                      )}
                       <p className="text-xs text-slate-600 mt-1">
                         {new Date(a.createdAt).toLocaleString("pt-PT")}
                       </p>
@@ -1228,7 +1302,18 @@ export default function CMSDashboard() {
               <div className="text-center py-12 text-slate-500">A carregar…</div>
             ) : mediaList.length === 0 ? (
               <div className="text-center py-12 text-slate-500">
-                {mediaQ || mediaStatus ? "Nenhum resultado." : "Sem ficheiros carregados."}
+                {mediaQ || mediaStatus ? "Nenhum resultado." : (
+                  <div className="text-center py-16 px-8">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                      <ImageIcon className="w-8 h-8 text-slate-600" />
+                    </div>
+                    <h3 className="text-slate-300 font-bold mb-2">Biblioteca vazia</h3>
+                    <p className="text-slate-500 text-sm max-w-sm mx-auto leading-relaxed">
+                      Os ficheiros carregados nas notícias e serviços aparecem aqui automaticamente.
+                      Para adicionar imagens, crie ou edite uma notícia e faça upload de uma imagem.
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
@@ -1247,6 +1332,224 @@ export default function CMSDashboard() {
           </div>
         </GlassPanel>
       )}
+
+      {/* ── ARTICLE DETAIL MODAL ────────────────────────────────────────────── */}
+      <Modal
+        open={!!viewingArticle}
+        onClose={() => setViewingArticle(null)}
+        title="Detalhes do Artigo"
+      >
+        {viewingArticle && (
+          <div className="space-y-5">
+            {viewingArticle.imgUrl && (
+              <div className="rounded-xl overflow-hidden max-h-56">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={viewingArticle.imgUrl} alt={viewingArticle.title} className="w-full h-full object-cover" />
+              </div>
+            )}
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 font-bold uppercase text-xs tracking-widest">
+                {viewingArticle.tag}
+              </span>
+              {viewingArticle.status === "PUBLISHED" && <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase">Publicado</span>}
+              {viewingArticle.status === "DRAFT" && <span className="px-2 py-0.5 rounded bg-slate-500/20 text-slate-400 text-xs font-bold uppercase">Rascunho</span>}
+              {viewingArticle.status === "SCHEDULED" && <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-400 text-xs font-bold uppercase">Agendado</span>}
+              {viewingArticle.status === "ARCHIVED" && <span className="px-2 py-0.5 rounded bg-zinc-500/20 text-zinc-500 text-xs font-bold uppercase">Arquivado</span>}
+              {viewingArticle.publishAt && (
+                <span className="text-slate-500 text-xs">· {new Date(viewingArticle.publishAt).toLocaleString("pt-PT")}</span>
+              )}
+            </div>
+            <h2 className="text-2xl font-black text-slate-100 leading-tight">{viewingArticle.title}</h2>
+            <p className="text-slate-400 text-base leading-relaxed border-l-4 border-orange-500/40 pl-4 italic">{viewingArticle.shortDesc}</p>
+            <div
+              className="prose-evn pt-2 border-t border-white/10"
+              dangerouslySetInnerHTML={{ __html: viewingArticle.fullText || "<p>Sem conteúdo.</p>" }}
+            />
+            <div className="flex gap-3 pt-4 border-t border-white/10 justify-between">
+              <a
+                href="/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-slate-500 hover:text-orange-400 transition-colors flex items-center gap-1.5"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Ver no Portal
+              </a>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setViewingArticle(null); openNewsEdit(viewingArticle); }}
+                  className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-colors flex items-center gap-2"
+                >
+                  <Pencil className="w-4 h-4" />
+                  Editar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewingArticle(null)}
+                  className="px-4 py-2 rounded-lg border border-white/10 text-slate-400 hover:bg-white/5 text-sm transition-colors"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── ALERT DETAIL MODAL ──────────────────────────────────────────────── */}
+      <Modal
+        open={!!viewingAlert}
+        onClose={() => setViewingAlert(null)}
+        title="Detalhes do Alerta"
+      >
+        {viewingAlert && (
+          <div className="space-y-5">
+            <div className="flex items-center gap-3">
+              <span className={`px-3 py-1 rounded-full font-bold uppercase text-xs tracking-widest ${
+                viewingAlert.type === "URGENT"    ? "bg-red-500/20 text-red-400 border border-red-500/40" :
+                viewingAlert.type === "SCHEDULED" ? "bg-amber-500/20 text-amber-400 border border-amber-500/40" :
+                                                    "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+              }`}>
+                {viewingAlert.type === "URGENT" ? "Urgente" : viewingAlert.type === "SCHEDULED" ? "Agendado" : "Resolvido"}
+              </span>
+              <span className={`text-xs px-2 py-0.5 rounded ${viewingAlert.active ? "bg-emerald-500/10 text-emerald-400" : "bg-slate-500/10 text-slate-500"}`}>
+                {viewingAlert.active ? "Activo" : "Inactivo"}
+              </span>
+            </div>
+            <h2 className="text-xl font-black text-slate-100">{viewingAlert.title}</h2>
+            <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/10">
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Zona Afectada</p>
+                <p className="text-slate-200 font-semibold">{viewingAlert.zone}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Data</p>
+                <p className="text-slate-200 font-semibold">{viewingAlert.date}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Duração Estimada</p>
+                <p className="text-slate-200 font-semibold">{viewingAlert.duration}</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Descrição Completa</p>
+              <p className="text-slate-300 leading-relaxed bg-white/[0.02] border border-white/10 rounded-xl p-4 whitespace-pre-wrap">
+                {viewingAlert.description}
+              </p>
+            </div>
+            <div className="flex gap-3 pt-4 border-t border-white/10 justify-end">
+              <button
+                type="button"
+                onClick={() => { setViewingAlert(null); openAlertEdit(viewingAlert); }}
+                className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-colors flex items-center gap-2"
+              >
+                <Pencil className="w-4 h-4" />
+                Editar
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewingAlert(null)}
+                className="px-4 py-2 rounded-lg border border-white/10 text-slate-400 hover:bg-white/5 text-sm transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* ── AVARIA DETAIL MODAL ─────────────────────────────────────────────── */}
+      <Modal
+        open={!!viewingAvaria}
+        onClose={() => setViewingAvaria(null)}
+        title="Relatório de Avaria"
+      >
+        {viewingAvaria && (
+          <div className="space-y-5">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 font-bold uppercase text-xs tracking-widest border border-orange-500/30">
+                {viewingAvaria.type}
+              </span>
+              <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
+                viewingAvaria.status === "PENDING"     ? "bg-red-500/20 text-red-400 border border-red-500/30" :
+                viewingAvaria.status === "IN_PROGRESS" ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" :
+                                                         "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+              }`}>
+                {viewingAvaria.status === "PENDING" ? "Pendente" : viewingAvaria.status === "IN_PROGRESS" ? "Em Curso" : "Resolvido"}
+              </span>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Descrição da Ocorrência</p>
+              <p className="text-slate-300 leading-relaxed bg-white/[0.02] border border-white/10 rounded-xl p-4 whitespace-pre-wrap">
+                {viewingAvaria.description}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/10">
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Coordenadas GPS</p>
+                {(viewingAvaria.lat !== 0 || viewingAvaria.lng !== 0) ? (
+                  <a
+                    href={`https://www.google.com/maps?q=${viewingAvaria.lat},${viewingAvaria.lng}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-orange-400 hover:text-orange-300 font-mono text-sm flex items-center gap-1.5"
+                  >
+                    <MapPin className="w-4 h-4 shrink-0" />
+                    {viewingAvaria.lat.toFixed(6)}, {viewingAvaria.lng.toFixed(6)}
+                  </a>
+                ) : (
+                  <span className="text-slate-600 text-sm">GPS não capturado</span>
+                )}
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">IP do Reportante</p>
+                <p className="text-slate-400 font-mono text-sm">{viewingAvaria.reporterIp ?? "Desconhecido"}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Data do Relatório</p>
+                <p className="text-slate-200 font-semibold">{new Date(viewingAvaria.createdAt).toLocaleString("pt-PT")}</p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-slate-500 uppercase tracking-widest mb-2">Actualizar Estado</p>
+              <div className="flex gap-2 flex-wrap">
+                {(["PENDING", "IN_PROGRESS", "RESOLVED"] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setViewingAvariaStatus(s)}
+                    className={`px-4 py-2 rounded-lg border-2 text-sm font-medium transition-colors ${
+                      viewingAvariaStatus === s
+                        ? s === "PENDING"     ? "border-red-500 bg-red-500/15 text-red-300"
+                        : s === "IN_PROGRESS" ? "border-amber-500 bg-amber-500/15 text-amber-300"
+                        :                      "border-emerald-500 bg-emerald-500/15 text-emerald-300"
+                        : "border-white/10 text-slate-400 hover:bg-white/5"
+                    }`}
+                  >
+                    {s === "PENDING" ? "Pendente" : s === "IN_PROGRESS" ? "Em Curso" : "Resolvido"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-3 pt-4 border-t border-white/10 justify-end">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (viewingAvariaStatus !== viewingAvaria.status) {
+                    await updateAvariaStatus(viewingAvaria.id, viewingAvariaStatus);
+                    setViewingAvaria(prev => prev ? { ...prev, status: viewingAvariaStatus } : null);
+                  }
+                  setViewingAvaria(null);
+                }}
+                className="px-4 py-2 rounded-lg bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-colors"
+              >
+                {viewingAvariaStatus !== viewingAvaria.status ? "Guardar e Fechar" : "Fechar"}
+              </button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* ── NEWS MODAL ──────────────────────────────────────────────────────── */}
       <Modal open={newsModal} onClose={() => { setNewsModal(false); setNewsPreviewing(false); }} title={editingNews ? "Editar Notícia" : "Nova Notícia"}>
