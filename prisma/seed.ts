@@ -11,8 +11,9 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
   // ── News Articles (exact content from page.tsx mock data) ─────────────────
+  const newsCount = await prisma.newsArticle.count();
+  if (newsCount === 0) {
   await prisma.newsArticle.createMany({
-    skipDuplicates: true,
     data: [
       {
         tag: "Destaque",
@@ -45,10 +46,15 @@ async function main() {
       },
     ],
   });
+  console.log("Seeded news articles.");
+  } else {
+    console.log(`Skipped news seed — ${newsCount} articles already exist.`);
+  }
 
   // ── Service Documents ─────────────────────────────────────────────────────
+  const servicesCount = await prisma.serviceDocument.count();
+  if (servicesCount === 0) {
   await prisma.serviceDocument.createMany({
-    skipDuplicates: true,
     data: [
       {
         docId: "mod-01",
@@ -70,10 +76,15 @@ async function main() {
       },
     ],
   });
+  console.log("Seeded service documents.");
+  } else {
+    console.log(`Skipped services seed — ${servicesCount} documents already exist.`);
+  }
 
   // ── Network Alerts ────────────────────────────────────────────────────────
+  const alertCount = await prisma.networkAlert.count();
+  if (alertCount === 0) {
   await prisma.networkAlert.createMany({
-    skipDuplicates: true,
     data: [
       {
         type: "URGENT",
@@ -103,6 +114,10 @@ async function main() {
       },
     ],
   });
+  console.log("Seeded network alerts.");
+  } else {
+    console.log(`Skipped alert seed — ${alertCount} alerts already exist.`);
+  }
 
   // ── Admin User (default) ──────────────────────────────────────────────────
   const hashedPassword = await bcrypt.hash("evnadmin2026!", 12);
@@ -113,24 +128,34 @@ async function main() {
   });
 
   // ── Demo avaria reports ───────────────────────────────────────────────────
-  await prisma.avariaReport.createMany({
-    data: [
-      { type: "Poste Caído", lat: -25.9692, lng: 32.5732, description: "Poste de média tensão caído após tempestade. Cabos no chão, zona isolada com fita.", reporterIp: "192.0.2.1", status: "PENDING" },
-      { type: "Cabo Partido", lat: -25.9255, lng: 32.5816, description: "Cabo aéreo partido entre dois postes na rua principal. Corrente interrompida em três quarteirões.", reporterIp: "192.0.2.2", status: "IN_PROGRESS" },
-      { type: "Falha de Fornecimento", lat: -25.8950, lng: 32.6100, description: "Bairro inteiro sem energia há mais de 4 horas. Sem aviso prévio.", reporterIp: "192.0.2.3", status: "RESOLVED" },
-    ],
-    skipDuplicates: true,
-  });
+  const avariaCount = await prisma.avariaReport.count();
+  if (avariaCount === 0) {
+    await prisma.avariaReport.createMany({
+      data: [
+        { type: "Poste Caído", lat: -25.9692, lng: 32.5732, description: "Poste de média tensão caído após tempestade. Cabos no chão, zona isolada com fita.", reporterIp: "192.0.2.1", status: "PENDING" },
+        { type: "Cabo Partido", lat: -25.9255, lng: 32.5816, description: "Cabo aéreo partido entre dois postes na rua principal. Corrente interrompida em três quarteirões.", reporterIp: "192.0.2.2", status: "IN_PROGRESS" },
+        { type: "Falha de Fornecimento", lat: -25.8950, lng: 32.6100, description: "Bairro inteiro sem energia há mais de 4 horas. Sem aviso prévio.", reporterIp: "192.0.2.3", status: "RESOLVED" },
+      ],
+    });
+    console.log("Seeded avaria reports.");
+  } else {
+    console.log(`Skipped avaria seed — ${avariaCount} reports already exist.`);
+  }
 
   // ── Demo contact messages ─────────────────────────────────────────────────
-  await prisma.contactMessage.createMany({
-    data: [
-      { nome: "Maria Macamo", email: "maria.macamo@example.mz", mensagem: "Boa tarde, gostaria de saber como solicitar a mudança de titularidade do contador. Obrigada.", read: false },
-      { nome: "João Sitoe", email: "joao.sitoe@example.mz", mensagem: "A minha factura deste mês parece estar errada — o consumo está três vezes acima do habitual. Podem verificar?", read: false },
-      { nome: "Ana Mahumane", email: "ana.m@example.mz", mensagem: "Excelente serviço da equipa de manutenção que veio reparar o transformador no nosso bairro. Muito obrigada!", read: true },
-    ],
-    skipDuplicates: true,
-  });
+  const messageCount = await prisma.contactMessage.count();
+  if (messageCount === 0) {
+    await prisma.contactMessage.createMany({
+      data: [
+        { nome: "Maria Macamo", email: "maria.macamo@example.mz", mensagem: "Boa tarde, gostaria de saber como solicitar a mudança de titularidade do contador. Obrigada.", read: false },
+        { nome: "João Sitoe", email: "joao.sitoe@example.mz", mensagem: "A minha factura deste mês parece estar errada — o consumo está três vezes acima do habitual. Podem verificar?", read: false },
+        { nome: "Ana Mahumane", email: "ana.m@example.mz", mensagem: "Excelente serviço da equipa de manutenção que veio reparar o transformador no nosso bairro. Muito obrigada!", read: true },
+      ],
+    });
+    console.log("Seeded contact messages.");
+  } else {
+    console.log(`Skipped message seed — ${messageCount} messages already exist.`);
+  }
 
   console.log("✅ EVN database seeded successfully.");
 }

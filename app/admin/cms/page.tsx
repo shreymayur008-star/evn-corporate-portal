@@ -781,6 +781,15 @@ export default function CMSDashboard() {
                 { value: "za", label: "Z → A" },
               ]}
             />
+            {(newsQ !== "" || newsStatus !== "" || newsSort !== "newest") && (
+              <button
+                type="button"
+                onClick={() => { setNewsQ(""); setNewsStatus(""); setNewsSort("newest"); setNewsPage(1); }}
+                className="px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-orange-400 border border-white/10 hover:border-orange-500/30 transition-colors whitespace-nowrap"
+              >
+                Limpar filtros
+              </button>
+            )}
             {newsLoading ? (
               <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
             ) : newsList.length === 0 ? (
@@ -847,6 +856,15 @@ export default function CMSDashboard() {
                 { value: "oldest", label: "Mais antigos" },
               ]}
             />
+            {(servicesQ !== "" || servicesStatus !== "" || servicesSort !== "newest") && (
+              <button
+                type="button"
+                onClick={() => { setServicesQ(""); setServicesStatus(""); setServicesSort("newest"); setServicesPage(1); }}
+                className="px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-orange-400 border border-white/10 hover:border-orange-500/30 transition-colors whitespace-nowrap"
+              >
+                Limpar filtros
+              </button>
+            )}
             {servicesLoading ? (
               <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
             ) : servicesList.length === 0 ? (
@@ -909,6 +927,15 @@ export default function CMSDashboard() {
                 { value: "oldest", label: "Mais antigos" },
               ]}
             />
+            {(alertsQ !== "" || alertsStatus !== "" || alertsSort !== "newest") && (
+              <button
+                type="button"
+                onClick={() => { setAlertsQ(""); setAlertsStatus(""); setAlertsSort("newest"); setAlertsPage(1); }}
+                className="px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-orange-400 border border-white/10 hover:border-orange-500/30 transition-colors whitespace-nowrap"
+              >
+                Limpar filtros
+              </button>
+            )}
             {alertsLoading ? (
               <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
             ) : alertsList.length === 0 ? (
@@ -965,6 +992,15 @@ export default function CMSDashboard() {
                 { value: "oldest", label: "Mais antigos" },
               ]}
             />
+            {(avariasQ !== "" || avariasStatus !== "" || avariasSort !== "newest") && (
+              <button
+                type="button"
+                onClick={() => { setAvariasQ(""); setAvariasStatus(""); setAvariasSort("newest"); setAvariasPage(1); }}
+                className="px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-orange-400 border border-white/10 hover:border-orange-500/30 transition-colors whitespace-nowrap"
+              >
+                Limpar filtros
+              </button>
+            )}
             {avariasLoading ? (
               <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
             ) : avariasList.length === 0 ? (
@@ -1063,6 +1099,15 @@ export default function CMSDashboard() {
                 { value: "oldest", label: "Mais antigos" },
               ]}
             />
+            {(messagesQ !== "" || messagesStatus !== "" || messagesSort !== "newest") && (
+              <button
+                type="button"
+                onClick={() => { setMessagesQ(""); setMessagesStatus(""); setMessagesSort("newest"); setMessagesPage(1); }}
+                className="px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-orange-400 border border-white/10 hover:border-orange-500/30 transition-colors whitespace-nowrap"
+              >
+                Limpar filtros
+              </button>
+            )}
             {messagesLoading ? (
               <div className="flex justify-center p-12"><Loader2 className="w-8 h-8 text-orange-500 animate-spin" /></div>
             ) : messagesList.length === 0 ? (

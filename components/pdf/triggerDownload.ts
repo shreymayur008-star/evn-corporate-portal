@@ -1,7 +1,3 @@
-import type { DownloadState } from "@/app/_types";
-
-type SetDownload = (s: DownloadState) => void;
-
 const esc = (s: string | number) =>
   String(s).replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!)
@@ -534,62 +530,47 @@ function generateNovaLigacaoForm(filename: string, date: string): string {
     </div>`;
 }
 
-export function triggerDownload(
-  filename: string,
-  docType: "FATURA" | "EDITAL" | "FORMULARIO",
-  setDownload: SetDownload,
-  onDone: () => void,
-) {
-  setDownload({ show: true, filename, docType, progress: 0 });
-  let progress = 0;
+export type DocType = "FATURA" | "EDITAL" | "FORMULARIO";
 
-  const interval = setInterval(() => {
-    progress += Math.floor(Math.random() * 20) + 10;
-    if (progress >= 100) {
-      clearInterval(interval);
-      setDownload({ show: true, filename, docType, progress: 100 });
+export function triggerDownload(filename: string, docType: DocType): void {
+  const content =
+    docType === "FATURA" ? generateFatura(filename)
+    : docType === "EDITAL" ? generateEdital(filename)
+    : generateFormulario(filename);
 
-      setTimeout(() => {
-        const content =
-          docType === "FATURA" ? generateFatura(filename)
-          : docType === "EDITAL" ? generateEdital(filename)
-          : generateFormulario(filename);
+  const html = `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8"><title>${esc(filename)}</title><style>${pdfStyles()}</style></head><body>${content}</body></html>`;
 
-        const fullHtml = `<!DOCTYPE html><html lang="pt"><head><meta charset="UTF-8"><title>${esc(filename)}</title><style>${pdfStyles()}</style></head><body>${content}<script>window.addEventListener('load',function(){window.focus();window.print();});<\/script></body></html>`;
+  // window.open MUST be called synchronously inside an onClick handler
+  // (not in a promise or setTimeout) or Chrome blocks it as a popup.
+  const w = window.open("", "_blank", "noopener,noreferrer");
+  if (!w) {
+    // Popup blocked — fallback: download raw HTML so the user gets something.
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${filename.replace(/\s+/g, "-")}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return;
+  }
 
-        const cleanup = () => {
-          onDone();
-          setTimeout(() => setDownload({ show: false, filename: "", docType: "", progress: 0 }), 2000);
-        };
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
 
-        const iframe = document.createElement("iframe");
-        iframe.style.cssText = "position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;";
-        document.body.appendChild(iframe);
+  // Use the new window's own load event to trigger print.
+  w.addEventListener("load", () => {
+    setTimeout(() => {
+      w.focus();
+      w.print();
+    }, 300);
+  });
 
-        const doc = iframe.contentDocument ?? iframe.contentWindow?.document;
-        if (!doc) {
-          document.body.removeChild(iframe);
-          // Fallback: blob URL in new window
-          const blob = new Blob([fullHtml], { type: "text/html" });
-          const url = URL.createObjectURL(blob);
-          window.open(url, "_blank", "noopener,noreferrer");
-          setTimeout(() => URL.revokeObjectURL(url), 60_000);
-          cleanup();
-          return;
-        }
-
-        doc.open();
-        doc.write(fullHtml);
-        doc.close();
-
-        // Inline script handles print-on-load; clean up after user dismisses dialog
-        setTimeout(() => {
-          try { document.body.removeChild(iframe); } catch {}
-          cleanup();
-        }, 8000);
-      }, 500);
-    } else {
-      setDownload({ show: true, filename, docType, progress });
-    }
-  }, 400);
+  // Fallback for when the load event doesn't fire (already loaded).
+  setTimeout(() => {
+    try { w.focus(); w.print(); } catch { /* window may have been closed */ }
+  }, 800);
 }

@@ -59,7 +59,7 @@ const SERVICES = [
 export default function EVNCorporatePortal() {
   const [activeModal, setActiveModal]   = useState<ModalType>("NONE");
   const [selectedNewsId, setSelectedNewsId] = useState(1);
-  const [downloadState, setDownloadState] = useState<DownloadState>({ show: false, filename: "", docType: "", progress: 0 });
+  const [downloadState, _setDownloadState] = useState<DownloadState>({ show: false, filename: "", docType: "", progress: 0 });
   const [newsData, setNewsData]         = useState<ApiNewsArticle[]>([]);
   const [servicesList, setServicesList] = useState<ApiServiceDoc[]>([]);
   const [alertsList, setAlertsList]     = useState<ApiAlert[]>([]);
@@ -220,14 +220,14 @@ export default function EVNCorporatePortal() {
 
       {/* Modal engine */}
       <ModalShell activeModal={activeModal} closeModal={closeModal} downloadState={downloadState}>
-        {activeModal === "DASHBOARD"    && <DashboardModal closeModal={closeModal} triggerDl={triggerDownload} setDownload={setDownloadState} />}
+        {activeModal === "DASHBOARD"    && <DashboardModal closeModal={closeModal} triggerDl={triggerDownload} />}
         {activeModal === "CORTES"       && <CortesModal alertsList={alertsList} loading={alertsLoading} />}
         {activeModal === "SIMULADOR"    && <SimuladorModal />}
         {activeModal === "SEARCH"       && <SearchModal setActiveModal={setActiveModal} newsData={newsData} openNewsArticle={openNewsArticle} />}
-        {activeModal === "SERVICOS"     && <ServicosModal servicesList={servicesList} onDownload={(f,t,ds,done) => triggerDownload(f,t,ds,done)} setDownload={setDownloadState} loading={servicesLoading} />}
+        {activeModal === "SERVICOS"     && <ServicosModal servicesList={servicesList} onDownload={(f,t) => triggerDownload(f,t)} loading={servicesLoading} />}
         {activeModal === "CREDELEC"     && <CredelecModal closeModal={closeModal} />}
         {activeModal === "NOVA_LIGACAO" && <NovaLigacaoModal closeModal={closeModal} />}
-        {activeModal === "CONCURSOS"    && <ConcursosModal onDownload={triggerDownload} setDownload={setDownloadState} />}
+        {activeModal === "CONCURSOS"    && <ConcursosModal onDownload={triggerDownload} />}
         {activeModal === "CONTACT"      && <ContactModal />}
         {activeModal === "CONTRATOS"    && <ContratosModal />}
         {activeModal === "LOGIN"        && <LoginModal setActiveModal={setActiveModal} />}

@@ -3,18 +3,15 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Download } from "lucide-react";
-import type { DownloadState } from "@/app/_types";
 
 export function ConcursosModal({
   onDownload,
-  setDownload,
 }: {
-  onDownload: (f: string, t: "EDITAL", ds: (s: DownloadState) => void, done: () => void) => void;
-  setDownload: (s: DownloadState) => void;
+  onDownload: (f: string, t: "EDITAL") => void;
 }) {
   const [selected, setSelected] = useState(1);
 
-  const dl = (f: string) => onDownload(f, "EDITAL", setDownload, () => {});
+  const dl = (f: string) => onDownload(f, "EDITAL");
 
   return (
     <div className="flex flex-col md:flex-row h-full min-h-[600px]">

@@ -2,8 +2,6 @@
 
 import { Power, BarChart3, Download } from "lucide-react";
 import dynamic from "next/dynamic";
-import type { DownloadState } from "@/app/_types";
-
 const ConsumoChart = dynamic(() => import("./ConsumoChart"), {
   ssr: false,
   loading: () => (
@@ -22,11 +20,9 @@ const CONSUMPTION_DATA = [
 export function DashboardModal({
   closeModal,
   triggerDl,
-  setDownload,
 }: {
   closeModal: () => void;
-  triggerDl: (f: string, t: "FATURA" | "EDITAL" | "FORMULARIO", ds: (s: DownloadState) => void, done: () => void) => void;
-  setDownload: (s: DownloadState) => void;
+  triggerDl: (f: string, t: "FATURA" | "EDITAL" | "FORMULARIO") => void;
 }) {
 
   return (
@@ -64,7 +60,7 @@ export function DashboardModal({
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
                   onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
                   onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
-                  onClick={() => triggerDl(f, "FATURA", setDownload, () => {})}
+                  onClick={() => triggerDl(f, "FATURA")}
                 >
                   <span className="font-medium text-sm">{f.replace(/_/g, " ")}</span>
                   <Download className="w-4 h-4 text-orange-500" />

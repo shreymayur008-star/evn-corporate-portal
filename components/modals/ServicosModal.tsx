@@ -1,17 +1,15 @@
 "use client";
 
 import { FileText, Download } from "lucide-react";
-import type { ApiServiceDoc, DownloadState } from "@/app/_types";
+import type { ApiServiceDoc } from "@/app/_types";
 
 export function ServicosModal({
   servicesList,
   onDownload,
-  setDownload,
   loading,
 }: {
   servicesList: ApiServiceDoc[];
-  onDownload: (f: string, t: "FORMULARIO", ds: (s: DownloadState) => void, done: () => void) => void;
-  setDownload: (s: DownloadState) => void;
+  onDownload: (f: string, t: "FORMULARIO") => void;
   loading: boolean;
 }) {
   return (
@@ -40,7 +38,7 @@ export function ServicosModal({
             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
             onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(59,130,246,0.4)"; e.currentTarget.style.background = "rgba(59,130,246,0.04)"; }}
             onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
-            onClick={() => onDownload(item.title, "FORMULARIO", setDownload, () => {})}
+            onClick={() => onDownload(item.title, "FORMULARIO")}
           >
             <div className="relative z-10 flex items-center justify-between">
               <div>
