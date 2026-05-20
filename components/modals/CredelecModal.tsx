@@ -45,10 +45,28 @@ export function CredelecModal({ closeModal }: { closeModal: () => void }) {
             <div>
               <label className="text-sm font-bold text-slate-200 block mb-2">Número do Contador <span className="text-red-400">*</span></label>
               <input type="text" maxLength={11} placeholder="Introduza os 11 dígitos"
-                className={`w-full border-2 p-4 rounded-xl font-mono text-lg outline-none transition-colors text-slate-100 placeholder:text-slate-600 ${errors.meter ? "border-red-500" : "border-white/10 focus:border-orange-500"}`}
+                className={`w-full border-2 p-4 rounded-xl font-mono text-lg outline-none transition-colors text-slate-100 placeholder:text-slate-600 ${errors.meter ? "border-red-500" : data.meter.length === 11 ? "border-green-500" : "border-white/10 focus:border-orange-500"}`}
                 style={{ background: errors.meter ? "rgba(239,68,68,0.07)" : "rgba(255,255,255,0.05)" }}
                 value={data.meter} onChange={e => setData(d => ({ ...d, meter: e.target.value.replace(/\D/g, "") }))} />
-              {errors.meter ? <p className="text-red-400 text-sm mt-2 flex items-center gap-1"><AlertCircle className="w-4 h-4" /> {errors.meter}</p> : <p className="text-slate-500 text-xs mt-2">O número encontra-se no seu cartão EVN.</p>}
+              <div className="flex items-center justify-between mt-1.5">
+                {errors.meter
+                  ? <p className="text-red-400 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {errors.meter}</p>
+                  : <p className="text-slate-500 text-xs">Número no seu cartão EVN.</p>
+                }
+                <span className={`text-xs tabular-nums font-mono ${data.meter.length === 11 ? "text-emerald-400" : "text-slate-500"}`}>
+                  {data.meter.length}/11
+                </span>
+              </div>
+              {data.meter.length === 11 && (
+                <div className="mt-1 h-1 rounded-full bg-emerald-500/40 overflow-hidden">
+                  <div className="h-full bg-emerald-400 rounded-full" style={{ width: "100%" }} />
+                </div>
+              )}
+              {data.meter.length > 0 && data.meter.length < 11 && (
+                <div className="mt-1 h-1 rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-full bg-orange-500 rounded-full transition-all" style={{ width: `${(data.meter.length / 11) * 100}%` }} />
+                </div>
+              )}
             </div>
             <div>
               <label className="text-sm font-bold text-slate-200 block mb-2">Valor da Recarga (MZN) <span className="text-red-400">*</span></label>
@@ -56,7 +74,14 @@ export function CredelecModal({ closeModal }: { closeModal: () => void }) {
                 className={`w-full border-2 p-4 rounded-xl font-bold text-lg outline-none transition-colors text-slate-100 placeholder:text-slate-600 ${errors.amount ? "border-red-500" : "border-white/10 focus:border-orange-500"}`}
                 style={{ background: errors.amount ? "rgba(239,68,68,0.07)" : "rgba(255,255,255,0.05)" }}
                 value={data.amount} onChange={e => setData(d => ({ ...d, amount: e.target.value }))} />
-              {errors.amount && <p className="text-red-400 text-sm mt-2 flex items-center gap-1"><AlertCircle className="w-4 h-4" /> {errors.amount}</p>}
+              {errors.amount
+                ? <p className="text-red-400 text-sm mt-2 flex items-center gap-1"><AlertCircle className="w-4 h-4" /> {errors.amount}</p>
+                : data.amount && parseInt(data.amount) > 0 && parseInt(data.amount) < 100
+                  ? <p className="text-amber-400 text-xs mt-2 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Mínimo 100 MZN</p>
+                  : data.amount && parseInt(data.amount) >= 500
+                    ? <p className="text-emerald-400 text-xs mt-2">💡 Dica: recargas acima de 500 MZN têm menor custo por kWh</p>
+                    : null
+              }
             </div>
             <button type="submit" disabled={!isValid} style={{ opacity: isValid ? 1 : 0.42, cursor: isValid ? "pointer" : "not-allowed" }}
               className="w-full bg-[#16a34a] text-white font-bold py-4 rounded-xl shadow-[0_4px_15px_rgba(22,163,74,0.3)] transition-opacity text-lg flex items-center justify-center gap-2">

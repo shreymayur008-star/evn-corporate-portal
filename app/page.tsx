@@ -26,7 +26,7 @@ import { LoginModal } from "@/components/modals/LoginModal";
 import { AvariaModal } from "@/components/modals/AvariaModal";
 import { EmpresaModal, ProjectosModal, NewsReaderModal } from "@/components/modals/OtherModals";
 import { Footer } from "@/components/sections/Footer";
-import AuthModal from "@/components/ui/AuthModal";
+import AuthModal, { saveUserLocally, clearUserLocally } from "@/components/ui/AuthModal";
 
 // ─── Fallback seed data ───────────────────────────────────────────────────────
 const NEWS_FALLBACK: ApiNewsArticle[] = [
@@ -65,9 +65,10 @@ export default function EVNCorporatePortal() {
   const [newsLoading, setNewsLoading]         = useState(true);
   const [servicesLoading, setServicesLoading] = useState(true);
   const [alertsLoading, setAlertsLoading]     = useState(true);
-  const [authModalOpen, setAuthModalOpen]     = useState(false);
-  const [authModalTab, setAuthModalTab]       = useState<"login" | "register">("login");
-  const [currentUser, setCurrentUser]         = useState<{ id: number; nome: string; email: string } | null>(null);
+  const [authModalOpen, setAuthModalOpen]       = useState(false);
+  const [authModalTab, setAuthModalTab]         = useState<"login" | "register">("login");
+  const [currentUser, setCurrentUser]           = useState<{ id: number; nome: string; email: string } | null>(null);
+  const [welcomeBackName, setWelcomeBackName]   = useState<string | null>(null);
   const scrollProgress = useScrollProgress();
 
   useEffect(() => {
@@ -118,6 +119,13 @@ export default function EVNCorporatePortal() {
   }, []);
 
   useEffect(() => {
+    try {
+      const saved = localStorage.getItem("evn_last_user_name");
+      if (saved) setWelcomeBackName(saved);
+    } catch { /* unavailable */ }
+  }, []);
+
+  useEffect(() => {
     fetch("/api/auth/user/me")
       .then((r) => r.json())
       .then((data: { user?: { id: number; nome: string; email: string } }) => {
@@ -125,6 +133,28 @@ export default function EVNCorporatePortal() {
       })
       .catch(() => {});
   }, []);
+
+  const handleAuthSuccess = (user: { id: number; nome: string; email: string }) => {
+    const prevName = welcomeBackName;
+    setCurrentUser(user);
+    setWelcomeBackName(user.nome);
+    saveUserLocally(user.nome, user.email);
+    if (prevName && prevName === user.nome) {
+      toast(`Bem-vindo de volta, ${user.nome.split(" ")[0]}!`, {
+        style: { background: "#1a0a00", border: "1px solid #f97316", color: "#fdba74" },
+        icon: "⚡",
+      });
+    } else {
+      toast.success(`Bem-vindo ao Portal EVN, ${user.nome.split(" ")[0]}!`);
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/user/logout", { method: "POST" });
+    setCurrentUser(null);
+    clearUserLocally();
+    setWelcomeBackName(null);
+  };
 
   const openNewsArticle = (id: number) => { setSelectedNewsId(id); setActiveModal("NEWS"); };
   const closeModal = () => { setActiveModal("NONE"); toast.dismiss(); };
@@ -150,12 +180,7 @@ export default function EVNCorporatePortal() {
           <h1 className="text-[10px] font-black text-center uppercase tracking-widest leading-tight text-slate-200">Eletricidade<br /><span className="text-orange-500">Vantara Nacional</span></h1>
         </div>
         {currentUser ? (
-          <button
-            type="button"
-            onClick={async () => {
-              await fetch("/api/auth/user/logout", { method: "POST" });
-              setCurrentUser(null);
-            }}
+          <button type="button" onClick={handleLogout}
             className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-white/10 text-slate-300 hover:text-orange-400 hover:border-orange-500/30 transition-colors text-sm font-bold"
           >
             <div className="w-7 h-7 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 font-black text-sm">
@@ -188,12 +213,7 @@ export default function EVNCorporatePortal() {
           <Menu className="md:hidden w-6 h-6 cursor-pointer text-orange-500" />
           <div className="flex items-center gap-3">
             {currentUser ? (
-              <button
-                type="button"
-                onClick={async () => {
-                  await fetch("/api/auth/user/logout", { method: "POST" });
-                  setCurrentUser(null);
-                }}
+              <button type="button" onClick={handleLogout}
                 className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-slate-300 hover:text-orange-400 hover:border-orange-500/30 transition-colors text-sm font-medium"
               >
                 <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 font-bold text-xs">
@@ -201,9 +221,18 @@ export default function EVNCorporatePortal() {
                 </div>
                 {currentUser.nome.split(" ")[0]}
               </button>
+            ) : welcomeBackName ? (
+              <button type="button"
+                onClick={() => { setAuthModalTab("login"); setAuthModalOpen(true); }}
+                className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-300 hover:bg-orange-500/20 transition-colors text-sm"
+              >
+                <div className="w-5 h-5 rounded-full bg-orange-500/30 flex items-center justify-center text-xs font-bold">
+                  {welcomeBackName.charAt(0).toUpperCase()}
+                </div>
+                Bem-vindo de volta, {welcomeBackName.split(" ")[0]}
+              </button>
             ) : (
-              <button
-                type="button"
+              <button type="button"
                 onClick={() => { setAuthModalTab("login"); setAuthModalOpen(true); }}
                 className="hidden md:block px-4 py-2 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/25 transition-colors text-sm font-medium"
               >
@@ -347,7 +376,7 @@ export default function EVNCorporatePortal() {
       <AuthModal
         open={authModalOpen}
         onClose={() => setAuthModalOpen(false)}
-        onSuccess={(user) => setCurrentUser(user)}
+        onSuccess={handleAuthSuccess}
         defaultTab={authModalTab}
       />
 

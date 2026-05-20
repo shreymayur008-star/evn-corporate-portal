@@ -11,6 +11,8 @@ export function NovaLigacaoModal({ closeModal }: { closeModal: () => void }) {
   const [step, setStep] = useState(1);
   const [data, setData] = useState({ nome: "", nuit: "", telefone: "", endereco: "" });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const touch = (f: string) => setTouched(prev => ({ ...prev, [f]: true }));
 
   const step1Valid = useMemo(
     () => data.nome.trim().length >= 3 && /^\d{9}$/.test(data.nuit) && MZ_PHONE.test(data.telefone),
@@ -40,10 +42,17 @@ export function NovaLigacaoModal({ closeModal }: { closeModal: () => void }) {
         <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-orange-500" style={{ background: "rgba(249,115,22,0.1)" }}><Zap className="w-8 h-8" /></div>
         <div><h2 className="text-3xl font-black text-white">Nova Ligação EVN</h2><p className="text-slate-400">Pedido oficial de integração à rede elétrica.</p></div>
       </div>
-      <div className="flex items-center gap-2 mb-8">
+      <div className="flex items-center gap-2 mb-2">
         <div className="h-1 flex-1 rounded-full bg-orange-500" />
         <div className="h-1 flex-1 rounded-full transition-colors" style={{ background: step > 1 ? "#f97316" : "rgba(255,255,255,0.1)" }} />
       </div>
+      <p className="text-xs text-slate-500 mb-6">
+        Passo {step} de 2 —{" "}
+        {step === 1
+          ? `${Math.round(([data.nome.trim().length >= 3, /^\d{9}$/.test(data.nuit), MZ_PHONE.test(data.telefone)].filter(Boolean).length / 3) * 50)}% completo`
+          : `${data.endereco.trim().length >= 10 ? "100" : "50"}% completo`
+        }
+      </p>
       <form className="space-y-6">
         {step === 1 && (
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
@@ -51,19 +60,52 @@ export function NovaLigacaoModal({ closeModal }: { closeModal: () => void }) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="text-sm font-bold text-slate-300 block mb-2">Nome Completo</label>
-                <input type="text" className={`w-full border-2 p-4 rounded-xl outline-none transition-colors text-slate-100 placeholder:text-slate-600 ${errors.nome ? "border-red-500" : "border-white/10 focus:border-orange-500"}`} style={{ background: "rgba(255,255,255,0.05)" }} value={data.nome} onChange={e => setData(d => ({ ...d, nome: e.target.value }))} placeholder="Como consta no BI" />
+                <input type="text"
+                  className={`w-full border-2 p-4 rounded-xl outline-none transition-colors text-slate-100 placeholder:text-slate-600 ${touched.nome && data.nome.trim().length < 3 ? "border-red-500" : data.nome.trim().length >= 3 ? "border-green-500/60" : "border-white/10 focus:border-orange-500"}`}
+                  style={{ background: "rgba(255,255,255,0.05)" }}
+                  value={data.nome}
+                  onChange={e => setData(d => ({ ...d, nome: e.target.value }))}
+                  onBlur={() => touch("nome")}
+                  placeholder="Como consta no BI" />
+                {touched.nome && data.nome.trim().length < 3 && (
+                  <p className="text-amber-400 text-xs mt-1 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Mínimo 3 caracteres.</p>
+                )}
                 {errors.nome && <p className="text-red-400 text-xs mt-1 font-medium">{errors.nome}</p>}
               </div>
               <div>
                 <label className="text-sm font-bold text-slate-300 block mb-2">NUIT (9 Dígitos)</label>
-                <input type="text" maxLength={9} className={`w-full border-2 p-4 rounded-xl font-mono outline-none transition-colors text-slate-100 placeholder:text-slate-600 ${errors.nuit ? "border-red-500" : "border-white/10 focus:border-orange-500"}`} style={{ background: "rgba(255,255,255,0.05)" }} value={data.nuit} onChange={e => setData(d => ({ ...d, nuit: e.target.value.replace(/\D/g, "") }))} placeholder="Ex: 123456789" />
-                {errors.nuit && <p className="text-red-400 text-xs mt-1 font-medium">{errors.nuit}</p>}
+                <input type="text" maxLength={9}
+                  className={`w-full border-2 p-4 rounded-xl font-mono outline-none transition-colors text-slate-100 placeholder:text-slate-600 ${touched.nuit && !/^\d{9}$/.test(data.nuit) ? "border-red-500" : /^\d{9}$/.test(data.nuit) ? "border-green-500/60" : "border-white/10 focus:border-orange-500"}`}
+                  style={{ background: "rgba(255,255,255,0.05)" }}
+                  value={data.nuit}
+                  onChange={e => setData(d => ({ ...d, nuit: e.target.value.replace(/\D/g, "") }))}
+                  onBlur={() => touch("nuit")}
+                  placeholder="Ex: 123456789" />
+                <div className="flex items-center justify-between mt-1">
+                  {touched.nuit && !/^\d{9}$/.test(data.nuit)
+                    ? <p className="text-amber-400 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {errors.nuit || "NUIT deve ter 9 dígitos."}</p>
+                    : <span />
+                  }
+                  <span className={`text-xs tabular-nums font-mono ${/^\d{9}$/.test(data.nuit) ? "text-emerald-400" : "text-slate-500"}`}>{data.nuit.length}/9</span>
+                </div>
               </div>
             </div>
             <div>
               <label className="text-sm font-bold text-slate-300 block mb-2">Telemóvel</label>
-              <input type="tel" className={`w-full border-2 p-4 rounded-xl outline-none transition-colors text-slate-100 placeholder:text-slate-600 ${errors.telefone ? "border-red-500" : "border-white/10 focus:border-orange-500"}`} style={{ background: "rgba(255,255,255,0.05)" }} value={data.telefone} onChange={e => setData(d => ({ ...d, telefone: e.target.value.replace(/\D/g, "") }))} placeholder="Ex: 840000000" />
-              {errors.telefone && <p className="text-red-400 text-xs mt-1 font-medium">{errors.telefone}</p>}
+              <input type="tel"
+                className={`w-full border-2 p-4 rounded-xl outline-none transition-colors text-slate-100 placeholder:text-slate-600 ${touched.telefone && !MZ_PHONE.test(data.telefone) ? "border-red-500" : MZ_PHONE.test(data.telefone) ? "border-green-500/60" : "border-white/10 focus:border-orange-500"}`}
+                style={{ background: "rgba(255,255,255,0.05)" }}
+                value={data.telefone}
+                onChange={e => setData(d => ({ ...d, telefone: e.target.value.replace(/\D/g, "") }))}
+                onBlur={() => touch("telefone")}
+                placeholder="Ex: 840000000" />
+              <div className="flex items-center justify-between mt-1">
+                {touched.telefone && !MZ_PHONE.test(data.telefone)
+                  ? <p className="text-amber-400 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {errors.telefone || "Contacto inválido (Ex: 841234567)."}</p>
+                  : <span />
+                }
+                <span className={`text-xs tabular-nums font-mono ${MZ_PHONE.test(data.telefone) ? "text-emerald-400" : "text-slate-500"}`}>{data.telefone.length}/9</span>
+              </div>
             </div>
           </motion.div>
         )}

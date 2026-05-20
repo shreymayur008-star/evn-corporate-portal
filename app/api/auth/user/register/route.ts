@@ -28,20 +28,26 @@ export async function POST(req: NextRequest) {
 
   const { nome, email, password, telefone } = parsed.data;
 
-  const existing = await prisma.publicUser.findUnique({ where: { email: email.toLowerCase() } });
-  if (existing) {
-    return NextResponse.json({ error: "Este email já está registado. Por favor inicie sessão." }, { status: 409 });
+  try {
+    const existing = await prisma.publicUser.findUnique({ where: { email: email.toLowerCase() } });
+    if (existing) {
+      return NextResponse.json({ error: "Este email já está registado. Por favor inicie sessão." }, { status: 409 });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const user = await prisma.publicUser.create({
+      data: { nome, email: email.toLowerCase(), hashedPassword, telefone },
+    });
+
+    const token = await createSession(user.id);
+
+    return NextResponse.json(
+      { user: { id: user.id, nome: user.nome, email: user.email } },
+      { status: 201, headers: { "Set-Cookie": setCookieHeader(token) } }
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("[register] error:", msg);
+    return NextResponse.json({ error: "Erro interno. Tente novamente." }, { status: 500 });
   }
-
-  const hashedPassword = await bcrypt.hash(password, 12);
-  const user = await prisma.publicUser.create({
-    data: { nome, email: email.toLowerCase(), hashedPassword, telefone },
-  });
-
-  const token = await createSession(user.id);
-
-  return NextResponse.json(
-    { user: { id: user.id, nome: user.nome, email: user.email } },
-    { status: 201, headers: { "Set-Cookie": setCookieHeader(token) } }
-  );
 }

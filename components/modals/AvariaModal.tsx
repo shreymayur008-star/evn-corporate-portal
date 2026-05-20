@@ -77,12 +77,51 @@ export function AvariaModal({ closeModal }: { closeModal: () => void }) {
             <button type="button" onClick={handleGPS} disabled={isCapturing} className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg text-sm font-bold transition-colors">{isCapturing ? "A ler..." : "Capturar"}</button>
           </div>
           {errors.gps && <p className="text-red-400 text-sm mt-2 font-bold flex items-center gap-1"><AlertCircle className="w-4 h-4" /> {errors.gps}</p>}
+          {(data.lat === 0 && data.lng === 0) && !isCapturing && (
+            <div className="mt-3">
+              <p className="text-slate-500 text-xs mb-2">Ou introduza as coordenadas manualmente:</p>
+              <div className="flex gap-2">
+                <input
+                  type="number"
+                  step="0.000001"
+                  placeholder="Latitude (ex: -25.9692)"
+                  className="flex-1 p-2 rounded-lg outline-none text-slate-300 text-sm"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  onFocus={e => (e.currentTarget.style.borderColor = "#f97316")}
+                  onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                  onChange={(e) => setData(d => ({ ...d, lat: parseFloat(e.target.value) || 0 }))}
+                />
+                <input
+                  type="number"
+                  step="0.000001"
+                  placeholder="Longitude (ex: 32.5732)"
+                  className="flex-1 p-2 rounded-lg outline-none text-slate-300 text-sm"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  onFocus={e => (e.currentTarget.style.borderColor = "#f97316")}
+                  onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
+                  onChange={(e) => setData(d => ({ ...d, lng: parseFloat(e.target.value) || 0 }))}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div>
           <label className="text-sm font-bold text-slate-300 block mb-2">Descrição Visual da Avaria <span className="text-red-400">*</span></label>
           <textarea rows={4} className={`w-full border-2 p-4 rounded-xl outline-none resize-none transition-colors text-slate-100 placeholder:text-slate-600 ${errors.desc ? "border-red-500" : "border-white/10 focus:border-orange-500"}`} style={{ background: errors.desc ? "rgba(239,68,68,0.07)" : "rgba(255,255,255,0.05)" }} placeholder="Descreva a ocorrência..." value={data.desc} onChange={e => setData(d => ({ ...d, desc: e.target.value }))} />
-          {errors.desc && <p className="text-red-400 text-sm mt-2 font-bold flex items-center gap-1"><AlertCircle className="w-4 h-4" /> {errors.desc}</p>}
+          <div className="flex items-center justify-between mt-1.5">
+            {errors.desc
+              ? <p className="text-red-400 text-sm font-bold flex items-center gap-1"><AlertCircle className="w-4 h-4" /> {errors.desc}</p>
+              : data.desc.length > 0 && data.desc.length < 10
+                ? <p className="text-amber-400 text-xs flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Mínimo 10 caracteres</p>
+                : data.desc.length >= 10
+                  ? <p className="text-emerald-400 text-xs flex items-center gap-1">✓ Descrição válida</p>
+                  : <span />
+            }
+            <span className={`text-xs tabular-nums ${data.desc.length >= 10 ? "text-emerald-400" : "text-slate-500"}`}>
+              {data.desc.length}/10 mín.
+            </span>
+          </div>
         </div>
 
         <button type="submit" disabled={!isValid} style={{ opacity: isValid ? 1 : 0.42, cursor: isValid ? "pointer" : "not-allowed" }} className="w-full bg-red-600 text-white font-bold py-4 rounded-xl text-lg shadow-[0_4px_15px_rgba(220,38,38,0.3)] transition-opacity">Emitir Alerta à Central EVN</button>
