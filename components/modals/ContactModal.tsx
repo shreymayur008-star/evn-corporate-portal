@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Phone, MessageCircle, Mail, Send, ChevronDown } from "lucide-react";
+import { Phone, MessageCircle, Mail, Send, ChevronDown, Copy, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 type ContactTopic = "geral" | "fatura" | "avaria" | "nova-ligacao" | "titularidade" | "eficiencia" | "tarifas" | "credelec";
@@ -453,14 +453,18 @@ export function ContactModal() {
   const [form, setForm]       = useState({ nome: "", email: "", mensagem: "" });
   const [topic, setTopic]     = useState<ContactTopic>("geral");
   const [submitting, setSubmitting] = useState(false);
+  const [emailTemplateModal, setEmailTemplateModal] = useState<{ open: boolean; subject: string; body: string } | null>(null);
 
   const handleSendEmail = () => {
     const { subject, body } = getEmailTemplate(topic, form.nome, form.mensagem);
 
-    // Gmail compose URL — works in any browser, no mail client required
-    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=shreymayur008@gmail.com&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body.slice(0, 7500))}`;
+    const shortBody = `Referência: ${subject.split('—').pop()?.trim() ?? ''}\n\nPor favor consulte o template completo em anexo / copiado abaixo.\n\nRequerente: ${form.nome || '(ver dados em baixo)'}\nMensagem: ${(form.mensagem || '').slice(0, 200)}`;
+
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=shreymayur008@gmail.com&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(shortBody)}`;
 
     window.open(gmailUrl, "_blank", "noopener,noreferrer");
+
+    setEmailTemplateModal({ open: true, subject, body });
   };
 
   const handleSubmitMessage = async () => {
@@ -505,6 +509,7 @@ export function ContactModal() {
   const inputBase = "w-full p-3.5 rounded-xl outline-none transition-colors text-slate-100 placeholder:text-slate-600 focus:border-orange-500 bg-white/[0.05] border border-white/10 text-sm";
 
   return (
+    <>
     <div className="flex flex-col lg:flex-row min-h-[620px]">
       {/* Left panel — contact channels */}
       <div className="lg:w-5/12 p-8 flex flex-col justify-between" style={{ background: "rgba(5,5,15,0.6)", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
@@ -659,5 +664,51 @@ export function ContactModal() {
         </form>
       </div>
     </div>
+
+    {emailTemplateModal?.open && (
+      <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div className="bg-zinc-950 border border-white/10 rounded-2xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl">
+          <div className="flex items-center justify-between p-5 border-b border-white/10">
+            <div>
+              <h3 className="text-slate-100 font-bold">Template do Email</h3>
+              <p className="text-slate-500 text-xs mt-0.5">Cole este conteúdo no corpo do email que acabou de abrir</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setEmailTemplateModal(null)}
+              className="p-2 rounded-lg hover:bg-white/5 text-slate-500 hover:text-slate-200 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-5">
+            <pre className="text-slate-300 text-xs leading-relaxed whitespace-pre-wrap font-mono bg-white/[0.03] rounded-xl p-4 border border-white/10">
+              {emailTemplateModal.body}
+            </pre>
+          </div>
+          <div className="p-5 border-t border-white/10 flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(emailTemplateModal.body);
+                toast.success("Template copiado! Cole-o no corpo do email.");
+              }}
+              className="flex-1 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-sm transition-colors flex items-center justify-center gap-2"
+            >
+              <Copy className="w-4 h-4" />
+              Copiar Template Completo
+            </button>
+            <button
+              type="button"
+              onClick={() => setEmailTemplateModal(null)}
+              className="px-5 py-3 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 text-sm transition-colors"
+            >
+              Fechar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
