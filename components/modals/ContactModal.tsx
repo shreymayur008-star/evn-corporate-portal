@@ -61,7 +61,12 @@ function getEmailTemplate(topic: ContactTopic, nome: string, mensagem: string): 
     },
   };
 
-  return templates[topic];
+  const { subject, body } = templates[topic];
+  const MAX_BODY = 1800;
+  const truncatedBody = body.length > MAX_BODY
+    ? body.slice(0, MAX_BODY) + "\n\n[Mensagem truncada — consulte o portal para detalhes completos]"
+    : body;
+  return { subject, body: truncatedBody };
 }
 
 export function ContactModal() {
@@ -72,12 +77,19 @@ export function ContactModal() {
   const handleSendEmail = () => {
     const { subject, body } = getEmailTemplate(topic, form.nome, form.mensagem);
     const mailtoUrl = `mailto:shreymayur008@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
     const a = document.createElement("a");
     a.href = mailtoUrl;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    // No API call. No toast. No state change. Done.
+
+    setTimeout(() => {
+      toast("Se o cliente de email não abriu, envie para: shreymayur008@gmail.com", {
+        duration: 6000,
+        icon: "📧",
+      });
+    }, 1500);
   };
 
   const handleSubmitMessage = async () => {
