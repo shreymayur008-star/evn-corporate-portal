@@ -1,7 +1,9 @@
 "use client";
 
-import { Power, BarChart3, Download } from "lucide-react";
+import { Power, BarChart3 } from "lucide-react";
 import dynamic from "next/dynamic";
+import PdfLink from "@/components/pdf/PdfLink";
+
 const ConsumoChart = dynamic(() => import("./ConsumoChart"), {
   ssr: false,
   loading: () => (
@@ -19,10 +21,8 @@ const CONSUMPTION_DATA = [
 
 export function DashboardModal({
   closeModal,
-  triggerDl,
 }: {
   closeModal: () => void;
-  triggerDl: (f: string, t: "FATURA" | "EDITAL" | "FORMULARIO") => void;
 }) {
 
   return (
@@ -55,16 +55,21 @@ export function DashboardModal({
           <div className="p-6 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
             <h3 className="font-bold text-lg mb-4 text-slate-200" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: "0.5rem" }}>Faturas &amp; Documentos</h3>
             <div className="space-y-3">
-              {["Fatura_Maio_2026", "Fatura_Abril_2026"].map(f => (
-                <button key={f} className="w-full p-3 rounded-xl flex justify-between items-center transition-colors text-slate-300 hover:text-white"
+              {[
+                { f: "Fatura Maio 2026", label: "Fatura Maio 2026" },
+                { f: "Fatura Abril 2026", label: "Fatura Abril 2026" },
+              ].map(({ f, label }) => (
+                <div key={f} className="w-full p-3 rounded-xl flex justify-between items-center"
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-                  onMouseEnter={e => (e.currentTarget.style.background = "rgba(255,255,255,0.08)")}
-                  onMouseLeave={e => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
-                  onClick={() => triggerDl(f, "FATURA")}
                 >
-                  <span className="font-medium text-sm">{f.replace(/_/g, " ")}</span>
-                  <Download className="w-4 h-4 text-orange-500" />
-                </button>
+                  <span className="font-medium text-sm text-slate-300">{label}</span>
+                  <PdfLink
+                    type="FATURA"
+                    filename={f}
+                    label="Descarregar"
+                    className="flex items-center gap-1 text-xs text-slate-400 hover:text-orange-400 transition-colors"
+                  />
+                </div>
               ))}
             </div>
           </div>

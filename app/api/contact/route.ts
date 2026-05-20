@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   const created = await prisma.contactMessage.create({
     data: {
       nome: parsed.data.nome,
-      email: parsed.data.email || "nao-fornecido@evn.co.mz",
+      email: parsed.data.email ?? null,
       mensagem: fullMensagem,
     },
   });

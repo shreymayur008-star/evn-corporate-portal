@@ -2,16 +2,10 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Download } from "lucide-react";
+import PdfLink from "@/components/pdf/PdfLink";
 
-export function ConcursosModal({
-  onDownload,
-}: {
-  onDownload: (f: string, t: "EDITAL") => void;
-}) {
+export function ConcursosModal() {
   const [selected, setSelected] = useState(1);
-
-  const dl = (f: string) => onDownload(f, "EDITAL");
 
   return (
     <div className="flex flex-col md:flex-row h-full min-h-[600px]">
@@ -54,9 +48,7 @@ export function ConcursosModal({
             </div>
             <div className="p-6 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
               <h4 className="font-bold text-slate-200 mb-4">Submeter Candidatura</h4>
-              <button onClick={() => dl("EVN-ENG-042")} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-xl transition-all flex items-center gap-2">
-                <Download className="w-4 h-4" /> Descarregar Termos de Referência PDF
-              </button>
+              <PdfLink type="EDITAL" filename="EVN-ENG-042" label="Descarregar Termos de Referência" />
             </div>
           </motion.div>
         )}
@@ -65,9 +57,7 @@ export function ConcursosModal({
             <span className="text-orange-500 font-bold text-sm tracking-widest uppercase mb-2 block">Ref: EVN-TEC-109</span>
             <h2 className="text-3xl font-black text-white mb-6">Técnico de Linhas (Média Tensão)</h2>
             <p className="text-slate-400 mb-8">Posição focada na expansão rápida e eletrificação rural da rede EVN.</p>
-            <button onClick={() => dl("EVN-TEC-109")} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-xl transition-all flex items-center gap-2">
-              <Download className="w-4 h-4" /> Descarregar Edital Completo PDF
-            </button>
+            <PdfLink type="EDITAL" filename="EVN-TEC-109" label="Descarregar Edital Completo PDF" />
           </motion.div>
         )}
       </div>

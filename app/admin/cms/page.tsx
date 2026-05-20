@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -193,9 +194,14 @@ function Textarea({ className, style, ...rest }: React.TextareaHTMLAttributes<HT
 // ═══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════════
-export default function CMSDashboard() {
+function CMSDashboard() {
   const { data: session } = useSession();
-  const [tab, setTab] = useState<Tab>("news");
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = searchParams.get("tab");
+    const validTabs: Tab[] = ["news", "services", "alerts", "avarias", "contact", "media"];
+    return validTabs.includes(t as Tab) ? (t as Tab) : "news";
+  });
 
   // ── Confirm dialog state ────────────────────────────────────────────────────
   const [confirmState, setConfirmState] = useState<{
@@ -1851,5 +1857,17 @@ export default function CMSDashboard() {
 
       {/* Toaster already in root layout */}
     </div>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <CMSDashboard />
+    </Suspense>
   );
 }

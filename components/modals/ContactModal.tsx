@@ -250,7 +250,7 @@ export function ContactModal() {
             <button
               type="button"
               onClick={handleSendEmail}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-600 bg-slate-800/60 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors font-medium text-sm"
+              className="flex-1 flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-600 bg-slate-800/60 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors font-medium text-sm"
             >
               <Mail className="w-4 h-4" />
               Enviar por Email
@@ -259,7 +259,7 @@ export function ContactModal() {
               type="button"
               onClick={handleSubmitMessage}
               disabled={submitting}
-              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors"
+              className="flex-1 flex items-center gap-2 px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors"
             >
               <Send className="w-4 h-4" />
               {submitting ? "A enviar…" : "Enviar Mensagem"}
