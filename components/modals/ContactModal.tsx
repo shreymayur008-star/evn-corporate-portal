@@ -76,20 +76,11 @@ export function ContactModal() {
 
   const handleSendEmail = () => {
     const { subject, body } = getEmailTemplate(topic, form.nome, form.mensagem);
-    const mailtoUrl = `mailto:shreymayur008@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 
-    const a = document.createElement("a");
-    a.href = mailtoUrl;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // Gmail compose URL — works in any browser, no mail client required
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=shreymayur008@gmail.com&su=${encodeURIComponent(subject)}&body=${encodeURIComponent(body.slice(0, 1800))}`;
 
-    setTimeout(() => {
-      toast("Se o cliente de email não abriu, envie para: shreymayur008@gmail.com", {
-        duration: 6000,
-        icon: "📧",
-      });
-    }, 1500);
+    window.open(gmailUrl, "_blank", "noopener,noreferrer");
   };
 
   const handleSubmitMessage = async () => {
