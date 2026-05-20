@@ -65,36 +65,53 @@ function getEmailTemplate(topic: ContactTopic, nome: string, mensagem: string): 
 }
 
 export function ContactModal() {
-  const [form, setForm]             = useState({ nome: "", mensagem: "" });
-  const [topic, setTopic]           = useState<ContactTopic>("geral");
-  const [sendingApi, setSendingApi] = useState(false);
+  const [form, setForm]       = useState({ nome: "", email: "", mensagem: "" });
+  const [topic, setTopic]     = useState<ContactTopic>("geral");
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSendEmail = () => {
     const { subject, body } = getEmailTemplate(topic, form.nome, form.mensagem);
     const mailtoUrl = `mailto:shreymayur008@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoUrl, "_blank");
+    window.open(mailtoUrl, "_blank", "noopener,noreferrer");
+    // No API call. No toast. No state change. Done.
   };
 
-  const handleSendToApi = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!form.nome.trim() || !form.mensagem.trim()) {
-      toast.error("Preencha o nome e a mensagem.");
+  const handleSubmitMessage = async () => {
+    if (!form.nome.trim() || form.nome.trim().length < 2) {
+      toast.error("Insira o seu nome.");
       return;
     }
-    setSendingApi(true);
+    if (!form.mensagem.trim() || form.mensagem.trim().length < 5) {
+      toast.error("A mensagem é demasiado curta.");
+      return;
+    }
+
+    setSubmitting(true);
     try {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: form.nome, email: topic, mensagem: form.mensagem }),
+        body: JSON.stringify({
+          nome: form.nome.trim(),
+          email: form.email?.trim() || "",
+          mensagem: form.mensagem.trim(),
+          assunto: topic || "geral",
+        }),
       });
-      if (!res.ok) throw new Error(`${res.status}`);
-      toast.success("Mensagem enviada! A EVN entrará em contacto brevemente.");
-      setForm({ nome: "", mensagem: "" });
-    } catch {
-      toast.error("Não foi possível enviar a mensagem. Tente novamente.");
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
+      }
+
+      toast.success("Mensagem enviada com sucesso! Responderemos em 24–48 horas.");
+      setForm({ nome: "", email: "", mensagem: "" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido.";
+      toast.error(`Não foi possível enviar: ${msg}`);
+      console.error("[ContactModal] submit error:", err);
     } finally {
-      setSendingApi(false);
+      setSubmitting(false);
     }
   };
 
@@ -173,13 +190,27 @@ export function ContactModal() {
         <h3 className="text-xl font-black text-white mb-1">Enviar Mensagem</h3>
         <p className="text-slate-500 text-sm mb-6">Seleccione o assunto e preencha os dados. O botão de email abre o seu cliente de correio com um modelo profissional pré-preenchido.</p>
 
-        <form onSubmit={handleSendToApi} className="space-y-4 flex-1 flex flex-col">
+        <form className="space-y-4 flex-1 flex flex-col">
           {/* Name */}
           <div>
             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Nome</label>
             <input type="text" placeholder="O seu nome completo" value={form.nome}
               onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
               className={inputBase} />
+          </div>
+
+          {/* Email (optional) */}
+          <div>
+            <label className="block text-xs text-slate-500 uppercase tracking-widest mb-2 font-medium">
+              EMAIL <span className="text-slate-600 normal-case tracking-normal">(opcional — para receber resposta)</span>
+            </label>
+            <input
+              type="email"
+              placeholder="O seu email"
+              value={form.email || ""}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border-2 border-white/10 focus:border-orange-500 outline-none text-slate-100 placeholder:text-slate-600 text-sm transition-colors"
+            />
           </div>
 
           {/* Topic selector */}
@@ -219,22 +250,19 @@ export function ContactModal() {
             <button
               type="button"
               onClick={handleSendEmail}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-sm transition-all border"
-              style={{ background: "rgba(59,130,246,0.1)", borderColor: "rgba(59,130,246,0.3)", color: "#93c5fd" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "rgba(59,130,246,0.18)")}
-              onMouseLeave={e => (e.currentTarget.style.background = "rgba(59,130,246,0.1)")}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-600 bg-slate-800/60 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors font-medium text-sm"
             >
               <Mail className="w-4 h-4" />
               Enviar por Email
             </button>
             <button
-              type="submit"
-              disabled={sendingApi || !form.nome.trim() || !form.mensagem.trim()}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold text-white text-sm transition-all disabled:opacity-50"
-              style={{ background: "linear-gradient(135deg,#f97316,#ea580c)" }}
+              type="button"
+              onClick={handleSubmitMessage}
+              disabled={submitting}
+              className="flex items-center gap-2 px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors"
             >
               <Send className="w-4 h-4" />
-              {sendingApi ? "A enviar…" : "Enviar Mensagem"}
+              {submitting ? "A enviar…" : "Enviar Mensagem"}
             </button>
           </div>
 
