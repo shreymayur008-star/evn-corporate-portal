@@ -72,7 +72,11 @@ export function ContactModal() {
   const handleSendEmail = () => {
     const { subject, body } = getEmailTemplate(topic, form.nome, form.mensagem);
     const mailtoUrl = `mailto:shreymayur008@gmail.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-    window.open(mailtoUrl, "_blank", "noopener,noreferrer");
+    const a = document.createElement("a");
+    a.href = mailtoUrl;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
     // No API call. No toast. No state change. Done.
   };
 
