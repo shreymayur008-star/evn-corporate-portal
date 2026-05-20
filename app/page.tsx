@@ -5,13 +5,12 @@ import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
   Activity, CreditCard, FileText, Zap, FileSearch,
-  MessageSquare, Briefcase, Calculator, Search, Menu, Lock,
+  MessageSquare, Briefcase, Calculator, Search, Menu, Lock, ChevronRight,
 } from "lucide-react";
 
-import type { ModalType, ApiNewsArticle, ApiServiceDoc, ApiAlert, DownloadState } from "./_types";
+import type { ModalType, ApiNewsArticle, ApiServiceDoc, ApiAlert } from "./_types";
 import { useScrollProgress } from "@/components/hooks/useScrollProgress";
 import { TiltCard } from "@/components/TiltCard";
-import { triggerDownload } from "@/components/pdf/triggerDownload";
 import { ModalShell } from "@/components/modals/ModalShell";
 import { DashboardModal } from "@/components/modals/DashboardModal";
 import { CortesModal } from "@/components/modals/CortesModal";
@@ -27,6 +26,7 @@ import { LoginModal } from "@/components/modals/LoginModal";
 import { AvariaModal } from "@/components/modals/AvariaModal";
 import { EmpresaModal, ProjectosModal, NewsReaderModal } from "@/components/modals/OtherModals";
 import { Footer } from "@/components/sections/Footer";
+import AuthModal from "@/components/ui/AuthModal";
 
 // ─── Fallback seed data ───────────────────────────────────────────────────────
 const NEWS_FALLBACK: ApiNewsArticle[] = [
@@ -59,13 +59,15 @@ const SERVICES = [
 export default function EVNCorporatePortal() {
   const [activeModal, setActiveModal]   = useState<ModalType>("NONE");
   const [selectedNewsId, setSelectedNewsId] = useState(1);
-  const [downloadState, _setDownloadState] = useState<DownloadState>({ show: false, filename: "", docType: "", progress: 0 });
   const [newsData, setNewsData]         = useState<ApiNewsArticle[]>([]);
   const [servicesList, setServicesList] = useState<ApiServiceDoc[]>([]);
   const [alertsList, setAlertsList]     = useState<ApiAlert[]>([]);
   const [newsLoading, setNewsLoading]         = useState(true);
   const [servicesLoading, setServicesLoading] = useState(true);
   const [alertsLoading, setAlertsLoading]     = useState(true);
+  const [authModalOpen, setAuthModalOpen]     = useState(false);
+  const [authModalTab, setAuthModalTab]       = useState<"login" | "register">("login");
+  const [currentUser, setCurrentUser]         = useState<{ id: number; nome: string; email: string } | null>(null);
   const scrollProgress = useScrollProgress();
 
   useEffect(() => {
@@ -93,6 +95,37 @@ export default function EVNCorporatePortal() {
     load<ApiAlert>("/api/alerts",        setAlertsList,   ALERTS_FALLBACK,   setAlertsLoading,   "alertas");
   }, []);
 
+  useEffect(() => {
+    const hash = window.location.hash.replace("#", "").toUpperCase();
+    const validModals: Partial<Record<string, ModalType>> = {
+      "CREDELEC":    "CREDELEC",
+      "NOVA-LIGACAO":"NOVA_LIGACAO",
+      "CORTES":      "CORTES",
+      "SIMULADOR":   "SIMULADOR",
+      "CONTRATOS":   "CONTRATOS",
+      "AVARIA":      "AVARIA",
+      "DASHBOARD":   "DASHBOARD",
+      "SERVICOS":    "SERVICOS",
+      "CONCURSOS":   "CONCURSOS",
+      "EMPRESA":     "EMPRESA",
+      "PROJECTOS":   "PROJECTOS",
+    };
+    const target = validModals[hash];
+    if (target) {
+      setTimeout(() => setActiveModal(target), 800);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetch("/api/auth/user/me")
+      .then((r) => r.json())
+      .then((data: { user?: { id: number; nome: string; email: string } }) => {
+        if (data.user) setCurrentUser(data.user);
+      })
+      .catch(() => {});
+  }, []);
+
   const openNewsArticle = (id: number) => { setSelectedNewsId(id); setActiveModal("NEWS"); };
   const closeModal = () => { setActiveModal("NONE"); toast.dismiss(); };
 
@@ -106,7 +139,7 @@ export default function EVNCorporatePortal() {
       {/* Top notification bar */}
       <div className="bg-black/50 backdrop-blur-xl py-2 px-4 md:px-8 flex justify-between items-center text-xs font-medium text-slate-400 border-b border-white/5">
         <div className="flex items-center gap-2"><Zap className="w-4 h-4 text-orange-500" /><span>Eletricidade Vantara Nacional: Serviços Digitais Seguros e Verificados</span></div>
-        <button onClick={() => setActiveModal("LOGIN")} className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-4 py-1.5 rounded-full hover:bg-orange-500/30 transition-colors">Acesso Seguro</button>
+        <button onClick={() => { setAuthModalTab("login"); setAuthModalOpen(true); }} className="bg-orange-500/20 border border-orange-500/30 text-orange-300 px-4 py-1.5 rounded-full hover:bg-orange-500/30 transition-colors">Acesso Seguro</button>
       </div>
 
       {/* Header */}
@@ -116,7 +149,23 @@ export default function EVNCorporatePortal() {
           <div className="w-12 h-12 border-2 border-orange-500 rounded-full flex items-center justify-center mb-1" style={{ boxShadow: "0 0 20px rgba(249,115,22,0.25)" }}><Zap className="w-6 h-6 text-orange-500" /></div>
           <h1 className="text-[10px] font-black text-center uppercase tracking-widest leading-tight text-slate-200">Eletricidade<br /><span className="text-orange-500">Vantara Nacional</span></h1>
         </div>
-        <button onClick={() => setActiveModal("LOGIN")} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-lg transition-all shadow-[0_4px_20px_rgba(249,115,22,0.4)] flex items-center gap-2"><Lock className="w-4 h-4" /> Área de Cliente</button>
+        {currentUser ? (
+          <button
+            type="button"
+            onClick={async () => {
+              await fetch("/api/auth/user/logout", { method: "POST" });
+              setCurrentUser(null);
+            }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-white/10 text-slate-300 hover:text-orange-400 hover:border-orange-500/30 transition-colors text-sm font-bold"
+          >
+            <div className="w-7 h-7 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 font-black text-sm">
+              {currentUser.nome.charAt(0).toUpperCase()}
+            </div>
+            {currentUser.nome.split(" ")[0]}
+          </button>
+        ) : (
+          <button onClick={() => { setAuthModalTab("login"); setAuthModalOpen(true); }} className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-lg transition-all shadow-[0_4px_20px_rgba(249,115,22,0.4)] flex items-center gap-2"><Lock className="w-4 h-4" /> Área de Cliente</button>
+        )}
       </header>
 
       {/* Nav */}
@@ -137,7 +186,32 @@ export default function EVNCorporatePortal() {
             ))}
           </ul>
           <Menu className="md:hidden w-6 h-6 cursor-pointer text-orange-500" />
-          <div onClick={() => setActiveModal("SEARCH")} className="flex items-center gap-2 text-sm font-medium hover:text-orange-400 cursor-pointer bg-white/5 px-5 py-2.5 rounded-full transition-colors border border-white/10"><Search className="w-4 h-4" /> Procurar no Portal</div>
+          <div className="flex items-center gap-3">
+            {currentUser ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  await fetch("/api/auth/user/logout", { method: "POST" });
+                  setCurrentUser(null);
+                }}
+                className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl border border-white/10 text-slate-300 hover:text-orange-400 hover:border-orange-500/30 transition-colors text-sm font-medium"
+              >
+                <div className="w-6 h-6 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 font-bold text-xs">
+                  {currentUser.nome.charAt(0).toUpperCase()}
+                </div>
+                {currentUser.nome.split(" ")[0]}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => { setAuthModalTab("login"); setAuthModalOpen(true); }}
+                className="hidden md:block px-4 py-2 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/25 transition-colors text-sm font-medium"
+              >
+                Entrar / Registar
+              </button>
+            )}
+            <div onClick={() => setActiveModal("SEARCH")} className="flex items-center gap-2 text-sm font-medium hover:text-orange-400 cursor-pointer bg-white/5 px-5 py-2.5 rounded-full transition-colors border border-white/10"><Search className="w-4 h-4" /> Procurar no Portal</div>
+          </div>
         </div>
       </nav>
 
@@ -172,62 +246,121 @@ export default function EVNCorporatePortal() {
       </motion.section>
 
       {/* News section */}
-      <motion.section className="py-16 px-4 md:px-8 lg:px-16 border-t border-white/5" initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ type: "spring", stiffness: 80, damping: 20 }}>
-        <div className="max-w-7xl mx-auto">
-          <div className="flex justify-between items-end mb-10"><div><h2 className="text-3xl font-black text-white">Notícias EVN</h2><p className="text-slate-400 mt-2">Fique a par das últimas novidades do sector energético.</p></div></div>
-          {newsLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <div className="lg:col-span-2 animate-pulse">
-                <div className="rounded-3xl h-[400px]" style={{ background: "rgba(255,255,255,0.06)" }} />
+      <motion.section className="py-20 px-4 sm:px-8 max-w-7xl mx-auto" initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ type: "spring", stiffness: 80, damping: 20 }}>
+        <div className="flex items-center justify-between mb-10">
+          <div>
+            <p className="text-orange-500 font-bold uppercase text-xs tracking-widest mb-2">Portal de Comunicação</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-slate-100">Últimas Notícias</h2>
+          </div>
+          {newsData.length > 0 && (
+            <span className="text-slate-500 text-sm hidden sm:block">{newsData.length} artigo(s)</span>
+          )}
+        </div>
+
+        {newsLoading ? (
+          <div className="space-y-6">
+            <div className="animate-pulse rounded-2xl h-64" style={{ background: "rgba(255,255,255,0.06)" }} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[0, 1, 2].map(i => (
+                <div key={i} className="animate-pulse rounded-xl h-48" style={{ background: "rgba(255,255,255,0.06)" }} />
+              ))}
+            </div>
+          </div>
+        ) : newsData.length === 0 ? (
+          <div className="text-center py-16 text-slate-500">Sem notícias publicadas.</div>
+        ) : (
+          <div className="space-y-6">
+            {/* Featured article — full-width hero */}
+            {newsData[0] && (
+              <div
+                className="relative overflow-hidden rounded-2xl cursor-pointer group"
+                style={{ background: "rgba(10,10,10,0.6)", border: "1px solid rgba(255,255,255,0.08)" }}
+                onClick={() => openNewsArticle(newsData[0].id)}
+              >
+                <div className="flex flex-col md:flex-row">
+                  {newsData[0].imgUrl && (
+                    <div className="md:w-1/2 aspect-[16/9] md:aspect-auto md:h-72 overflow-hidden">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={newsData[0].imgUrl}
+                        alt={newsData[0].title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                    </div>
+                  )}
+                  <div className="flex-1 p-8 flex flex-col justify-center">
+                    <span className="inline-block px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 font-bold uppercase text-xs tracking-widest mb-4">
+                      {newsData[0].tag}
+                    </span>
+                    <h3 className="text-2xl sm:text-3xl font-black text-slate-100 mb-4 leading-tight group-hover:text-orange-300 transition-colors">
+                      {newsData[0].title}
+                    </h3>
+                    <p className="text-slate-400 leading-relaxed line-clamp-3">{newsData[0].shortDesc}</p>
+                    <div className="mt-6 flex items-center gap-2 text-orange-400 font-semibold text-sm">
+                      Ler artigo completo
+                      <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex flex-col gap-6">
-                {[0, 1].map(i => (
-                  <div key={i} className="animate-pulse flex flex-col gap-3">
-                    <div className="w-full h-40 rounded-2xl" style={{ background: "rgba(255,255,255,0.06)" }} />
-                    <div className="space-y-2">
-                      <div className="h-3 w-16 rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
-                      <div className="h-5 w-full rounded" style={{ background: "rgba(255,255,255,0.06)" }} />
+            )}
+
+            {/* Remaining articles — 3-column grid */}
+            {newsData.length > 1 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {newsData.slice(1).map((article) => (
+                  <div
+                    key={article.id}
+                    className="flex flex-col overflow-hidden rounded-xl cursor-pointer group"
+                    style={{ background: "rgba(10,10,10,0.6)", border: "1px solid rgba(255,255,255,0.08)" }}
+                    onClick={() => openNewsArticle(article.id)}
+                  >
+                    {article.imgUrl && (
+                      <div className="aspect-[16/9] overflow-hidden">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={article.imgUrl}
+                          alt={article.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                      </div>
+                    )}
+                    <div className="flex-1 p-5 flex flex-col">
+                      <span className="inline-block px-2 py-0.5 rounded bg-orange-500/15 text-orange-400 font-bold uppercase text-xs tracking-widest mb-3 self-start">
+                        {article.tag}
+                      </span>
+                      <h3 className="text-slate-100 font-bold leading-snug group-hover:text-orange-300 transition-colors line-clamp-2 flex-1">
+                        {article.title}
+                      </h3>
+                      <p className="text-slate-500 text-sm mt-2 line-clamp-2">{article.shortDesc}</p>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {newsData[0] && (
-                <div className="lg:col-span-2 group cursor-pointer select-none" onClick={() => openNewsArticle(newsData[0].id)}>
-                  <div className="overflow-hidden rounded-3xl mb-4 relative h-[400px] shadow-lg">
-                    <img src={newsData[0].imgUrl ?? undefined} alt="EVN News" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
-                    <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent pointer-events-none" />
-                    <div className="absolute bottom-0 left-0 p-8"><span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full mb-3 inline-block">{newsData[0].tag}</span><h3 className="text-3xl font-bold text-white mb-2 group-hover:text-orange-400 transition-colors leading-tight">{newsData[0].title}</h3><p className="text-slate-300 line-clamp-2">{newsData[0].shortDesc}</p></div>
-                  </div>
-                </div>
-              )}
-              <div className="flex flex-col gap-6">
-                {newsData.slice(1).map(news => (
-                  <div key={news.id} className="group cursor-pointer select-none flex flex-col gap-3" onClick={() => openNewsArticle(news.id)}>
-                    <div className="w-full h-40 rounded-2xl overflow-hidden"><img src={news.imgUrl ?? undefined} alt="EVN News" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" /></div>
-                    <div><span className="text-orange-500 text-[10px] font-bold uppercase tracking-wider mb-1 inline-block">{news.tag}</span><h4 className="font-bold text-white text-lg leading-tight group-hover:text-orange-400 transition-colors">{news.title}</h4></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </motion.section>
 
-      <Footer setActiveModal={setActiveModal} />
+      <Footer />
+
+      <AuthModal
+        open={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        onSuccess={(user) => setCurrentUser(user)}
+        defaultTab={authModalTab}
+      />
 
       {/* Modal engine */}
-      <ModalShell activeModal={activeModal} closeModal={closeModal} downloadState={downloadState}>
-        {activeModal === "DASHBOARD"    && <DashboardModal closeModal={closeModal} triggerDl={triggerDownload} />}
+      <ModalShell activeModal={activeModal} closeModal={closeModal}>
+        {activeModal === "DASHBOARD"    && <DashboardModal closeModal={closeModal} />}
         {activeModal === "CORTES"       && <CortesModal alertsList={alertsList} loading={alertsLoading} />}
         {activeModal === "SIMULADOR"    && <SimuladorModal />}
         {activeModal === "SEARCH"       && <SearchModal setActiveModal={setActiveModal} newsData={newsData} openNewsArticle={openNewsArticle} />}
-        {activeModal === "SERVICOS"     && <ServicosModal servicesList={servicesList} onDownload={(f,t) => triggerDownload(f,t)} loading={servicesLoading} />}
+        {activeModal === "SERVICOS"     && <ServicosModal servicesList={servicesList} loading={servicesLoading} />}
         {activeModal === "CREDELEC"     && <CredelecModal closeModal={closeModal} />}
         {activeModal === "NOVA_LIGACAO" && <NovaLigacaoModal closeModal={closeModal} />}
-        {activeModal === "CONCURSOS"    && <ConcursosModal onDownload={triggerDownload} />}
+        {activeModal === "CONCURSOS"    && <ConcursosModal />}
         {activeModal === "CONTACT"      && <ContactModal />}
         {activeModal === "CONTRATOS"    && <ContratosModal />}
         {activeModal === "LOGIN"        && <LoginModal setActiveModal={setActiveModal} />}

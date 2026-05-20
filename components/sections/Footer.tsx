@@ -1,9 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { Zap, PhoneCall, Mail } from "lucide-react";
-import type { ModalType } from "@/app/_types";
 
-export function Footer({ setActiveModal }: { setActiveModal: (m: ModalType) => void }) {
+export function Footer() {
   return (
     <footer className="border-t border-white/5 mt-8" style={{ background: "rgba(2,6,23,0.95)" }}>
       <div className="max-w-7xl mx-auto px-4 md:px-8 lg:px-16 py-16">
@@ -28,17 +28,16 @@ export function Footer({ setActiveModal }: { setActiveModal: (m: ModalType) => v
             <h5 className="font-black text-white text-sm uppercase tracking-widest mb-5">Serviços</h5>
             <ul className="space-y-3">
               {[
-                { label: "Recarga Credelec",   modal: "CREDELEC" as ModalType },
-                { label: "Nova Ligação",        modal: "NOVA_LIGACAO" as ModalType },
-                { label: "Avisos de Corte",     modal: "CORTES" as ModalType },
-                { label: "Simulador MZN",       modal: "SIMULADOR" as ModalType },
-                { label: "Meus Contratos",      modal: "CONTRATOS" as ModalType },
-              ].map(({ label, modal }) => (
+                { label: "Recarga Credelec",  href: "/#credelec" },
+                { label: "Nova Ligação",       href: "/#nova-ligacao" },
+                { label: "Avisos de Corte",    href: "/#cortes" },
+                { label: "Simulador MZN",      href: "/#simulador" },
+                { label: "Meus Contratos",     href: "/#contratos" },
+              ].map(({ label, href }) => (
                 <li key={label}>
-                  <button type="button" onClick={() => setActiveModal(modal)}
-                    className="text-slate-500 hover:text-orange-400 text-sm transition-colors bg-transparent border-0 p-0 cursor-pointer">
+                  <Link href={href} className="text-slate-500 hover:text-orange-400 text-sm transition-colors">
                     {label}
-                  </button>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -49,16 +48,15 @@ export function Footer({ setActiveModal }: { setActiveModal: (m: ModalType) => v
             <h5 className="font-black text-white text-sm uppercase tracking-widest mb-5">Empresa</h5>
             <ul className="space-y-3">
               {[
-                { label: "Missão e Valores", modal: "EMPRESA" as ModalType },
-                { label: "Projectos EVN",    modal: "PROJECTOS" as ModalType },
-                { label: "Recrutamento",     modal: "CONCURSOS" as ModalType },
-                { label: "Imprensa",         modal: "NEWS" as ModalType },
-              ].map(({ label, modal }) => (
+                { label: "Missão e Valores", href: "/#empresa" },
+                { label: "Projectos EVN",    href: "/#projectos" },
+                { label: "Recrutamento",     href: "/#concursos" },
+                { label: "Imprensa",         href: "/imprensa" },
+              ].map(({ label, href }) => (
                 <li key={label}>
-                  <button type="button" onClick={() => setActiveModal(modal)}
-                    className="text-slate-500 hover:text-orange-400 text-sm transition-colors bg-transparent border-0 p-0 cursor-pointer">
+                  <Link href={href} className="text-slate-500 hover:text-orange-400 text-sm transition-colors">
                     {label}
-                  </button>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -68,9 +66,16 @@ export function Footer({ setActiveModal }: { setActiveModal: (m: ModalType) => v
           <div>
             <h5 className="font-black text-white text-sm uppercase tracking-widest mb-5">Legal</h5>
             <ul className="space-y-3">
-              {["Política de Privacidade", "Termos de Utilização", "Proteção de Dados", "Acessibilidade"].map(label => (
+              {[
+                { label: "Política de Privacidade", href: "/privacidade" },
+                { label: "Termos de Utilização",    href: "/termos" },
+                { label: "Proteção de Dados",       href: "/protecao-dados" },
+                { label: "Acessibilidade",          href: "/acessibilidade" },
+              ].map(({ label, href }) => (
                 <li key={label}>
-                  <span className="text-slate-500 text-sm">{label}</span>
+                  <Link href={href} className="text-slate-500 hover:text-orange-400 text-sm transition-colors">
+                    {label}
+                  </Link>
                 </li>
               ))}
             </ul>

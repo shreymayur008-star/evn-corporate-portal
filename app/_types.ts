@@ -32,10 +32,3 @@ export interface ApiAlert {
   duration: string;
   description: string;
 }
-
-export interface DownloadState {
-  show: boolean;
-  filename: string;
-  docType: string;
-  progress: number;
-}

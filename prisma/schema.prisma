@@ -91,3 +91,24 @@ model MediaAsset {
   uploadedBy   String?
   createdAt    DateTime @default(now())
 }
+
+model PublicUser {
+  id             Int             @id @default(autoincrement())
+  nome           String
+  email          String          @unique
+  hashedPassword String
+  telefone       String?
+  nrContador     String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  lastLoginAt    DateTime?
+  sessions       PublicSession[]
+}
+
+model PublicSession {
+  id        String     @id @default(cuid())
+  userId    Int
+  user      PublicUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime   @default(now())
+}
