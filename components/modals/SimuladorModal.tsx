@@ -18,11 +18,11 @@ export function SimuladorModal() {
   ];
 
   return (
-    <div className="p-10 flex flex-col md:flex-row gap-10">
-      <div className="md:w-1/2">
+    <div className="p-5 sm:p-10 flex flex-col md:flex-row gap-6 sm:gap-10">
+      <div className="w-full md:w-1/2">
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-blue-400" style={{ background: "rgba(59,130,246,0.1)" }}><Calculator className="w-8 h-8" /></div>
-          <div><h2 className="text-3xl font-black text-white">Simulador de Consumo</h2><p className="text-slate-400">Estime a sua fatura mensal (MZN).</p></div>
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-blue-400 shrink-0" style={{ background: "rgba(59,130,246,0.1)" }}><Calculator className="w-7 h-7 sm:w-8 sm:h-8" /></div>
+          <div><h2 className="text-2xl sm:text-3xl font-black text-white">Simulador de Consumo</h2><p className="text-slate-400 text-sm">Estime a sua fatura mensal (MZN).</p></div>
         </div>
         <div className="space-y-6">
           {sliders.map(({ key, label, val }) => (
@@ -39,7 +39,7 @@ export function SimuladorModal() {
         </div>
       </div>
 
-      <div className="md:w-1/2 rounded-3xl p-10 text-white flex flex-col justify-center" style={{ background: "rgba(3,3,9,0.8)", border: "1px solid rgba(255,255,255,0.06)" }}>
+      <div className="w-full md:w-1/2 rounded-3xl p-6 sm:p-10 text-white flex flex-col justify-center" style={{ background: "rgba(3,3,9,0.8)", border: "1px solid rgba(255,255,255,0.06)" }}>
         <h3 className="text-xl font-bold mb-8 text-center text-slate-400 uppercase tracking-widest">Estimativa Mensal (30 dias)</h3>
         <div className="text-center mb-8">
           <span className="text-6xl font-black text-orange-500">{costMzn.toFixed(2)}</span>

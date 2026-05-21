@@ -27,18 +27,18 @@ export function DashboardModal({
 
   return (
     <div className="flex flex-col h-full min-h-[700px]">
-      <div className="p-8 text-white flex justify-between items-center" style={{ background: "rgba(0,0,0,0.5)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-        <div><h2 className="text-3xl font-black text-white">Dashboard Inteligente</h2><p className="text-orange-400 font-mono mt-1">Contrato NUIT: 192837465 | Status: Activo</p></div>
-        <button onClick={closeModal} className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-white"><Power className="w-4 h-4" /> Terminar Sessão</button>
+      <div className="p-5 sm:p-8 text-white flex flex-wrap justify-between items-center gap-3" style={{ background: "rgba(0,0,0,0.5)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <div><h2 className="text-2xl sm:text-3xl font-black text-white">Dashboard Inteligente</h2><p className="text-orange-400 font-mono mt-1 text-xs sm:text-sm">Contrato NUIT: 192837465 | Status: Activo</p></div>
+        <button onClick={closeModal} className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded-lg font-bold flex items-center gap-2 text-white text-sm"><Power className="w-4 h-4" /> Terminar Sessão</button>
       </div>
 
-      <div className="p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="p-5 sm:p-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <div className="p-6 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
             <div className="flex justify-between items-center mb-6"><h3 className="font-bold text-lg flex items-center gap-2 text-slate-200"><BarChart3 className="text-orange-500" /> Consumo Energético Mensal</h3></div>
             <ConsumoChart data={CONSUMPTION_DATA} />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div className="p-6 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><p className="text-slate-400 text-sm font-bold mb-1">Gasto Acumulado (2026)</p><h4 className="text-3xl font-black text-white">13,500 <span className="text-sm text-slate-500">MZN</span></h4></div>
             <div className="p-6 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}><p className="text-slate-400 text-sm font-bold mb-1">Impacto Ambiental</p><h4 className="text-3xl font-black text-green-400">-12% <span className="text-sm text-slate-500">Emissão CO2</span></h4></div>
           </div>
@@ -59,7 +59,7 @@ export function DashboardModal({
                 { f: "Fatura Maio 2026", label: "Fatura Maio 2026" },
                 { f: "Fatura Abril 2026", label: "Fatura Abril 2026" },
               ].map(({ f, label }) => (
-                <div key={f} className="w-full p-3 rounded-xl flex justify-between items-center"
+                <div key={f} className="w-full p-3 rounded-xl flex flex-col sm:flex-row justify-between sm:items-center gap-2"
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
                 >
                   <span className="font-medium text-sm text-slate-300">{label}</span>

@@ -133,27 +133,30 @@ function Modal({ open, onClose, title, children }: {
       {open && (
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
           style={{ background: "rgba(2,6,23,0.85)", backdropFilter: "blur(16px)" }}
           onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
           <motion.div
-            initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 20 }}
-            className="w-full max-w-2xl rounded-3xl overflow-hidden"
+            initial={{ scale: 0.97, y: 40 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.97, y: 40 }}
+            className="w-full sm:max-w-2xl rounded-t-[1.5rem] sm:rounded-3xl flex flex-col max-h-[92vh] sm:max-h-[85vh]"
             style={{
               background: "rgba(8,8,12,0.97)",
               border: "1px solid rgba(255,255,255,0.1)",
               boxShadow: "0 32px 64px rgba(0,0,0,0.7)",
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-8 py-5"
+            {/* Mobile drag handle */}
+            <div className="sm:hidden w-10 h-1 rounded-full bg-white/20 mx-auto mt-3 mb-1 shrink-0" />
+            <div className="flex items-center justify-between px-5 sm:px-8 py-4 sm:py-5 shrink-0"
               style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-              <h3 className="font-black text-white text-lg">{title}</h3>
-              <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors">
-                <X className="w-6 h-6" />
+              <h3 className="font-black text-white text-base sm:text-lg">{title}</h3>
+              <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-1">
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
-            <div className="p-8 max-h-[70vh] overflow-y-auto">{children}</div>
+            <div className="p-5 sm:p-8 overflow-y-auto modal-scroll">{children}</div>
           </motion.div>
         </motion.div>
       )}
@@ -741,57 +744,66 @@ function CMSDashboard() {
   ];
 
   return (
-    <div className="min-h-screen p-6 md:p-10" style={{ background: "#020617" }}>
+    <div className="min-h-screen p-4 sm:p-6 md:p-10" style={{ background: "#020617" }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-10">
+      <div className="flex items-center justify-between mb-6 sm:mb-10 flex-wrap gap-3">
         <div>
-          <h1 className="text-3xl font-black text-white">EVN CMS</h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <h1 className="text-2xl sm:text-3xl font-black text-white">EVN CMS</h1>
+          <p className="text-slate-500 text-xs sm:text-sm mt-1">
             Portal Administrativo · {new Date().toLocaleDateString("pt-PT", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Desktop: email pill */}
           {session?.user?.email && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10">
               <div className="w-6 h-6 rounded-full bg-orange-500/20 border border-orange-500/40 flex items-center justify-center">
-                <span className="text-orange-400 text-xs font-bold uppercase">
-                  {session.user.email.charAt(0)}
-                </span>
+                <span className="text-orange-400 text-xs font-bold uppercase">{session.user.email.charAt(0)}</span>
               </div>
               <span className="text-slate-400 text-sm">{session.user.email}</span>
             </div>
           )}
-          <a
-            href="/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-white/10 text-slate-400 hover:text-orange-400 hover:border-orange-500/30 transition-colors text-sm font-medium"
-          >
+          {/* Mobile: avatar only */}
+          {session?.user?.email && (
+            <div className="sm:hidden w-8 h-8 rounded-full bg-orange-500/20 border border-orange-500/40 flex items-center justify-center">
+              <span className="text-orange-400 text-xs font-bold uppercase">{session.user.email.charAt(0)}</span>
+            </div>
+          )}
+          <a href="/" target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-2 px-3 py-2 rounded-lg border border-white/10 text-slate-400 hover:text-orange-400 hover:border-orange-500/30 transition-colors text-sm font-medium">
             <ExternalLink className="w-4 h-4" />
-            Ver Portal
+            <span className="hidden sm:inline">Ver Portal</span>
           </a>
-          <button
-            onClick={() => signOut({ callbackUrl: "/admin/login" })}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-slate-400 hover:text-white transition-colors"
-            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
-          >
-            <LogOut className="w-4 h-4" /> Sair
+          <button onClick={() => signOut({ callbackUrl: "/admin/login" })}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl font-bold text-slate-400 hover:text-white transition-colors"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <LogOut className="w-4 h-4" /><span className="hidden sm:inline">Sair</span>
           </button>
         </div>
       </div>
 
-      {/* Tab Nav */}
-      <div className="flex gap-2 mb-8 flex-wrap">
+      {/* Tab Nav — mobile: select; desktop: button row */}
+      <div className="sm:hidden mb-4">
+        <select
+          value={tab}
+          onChange={(e) => setTab(e.target.value as Tab)}
+          className="w-full px-4 py-3 rounded-xl bg-white/[0.04] border-2 border-white/10 focus:border-orange-500 outline-none text-slate-100 text-sm font-medium cursor-pointer"
+          style={{ background: "rgba(8,8,12,0.9)" }}
+        >
+          {TABS.map(({ key, label }) => (
+            <option key={key} value={key} style={{ background: "#020617" }}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="hidden sm:flex gap-2 mb-8 flex-wrap">
         {TABS.map(({ key, label, icon: Icon, badge }) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
+          <button key={key} onClick={() => setTab(key)}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all"
-            style={
-              tab === key
-                ? { background: "#f97316", color: "#fff", boxShadow: "0 0 20px rgba(249,115,22,0.35)" }
-                : { background: "rgba(255,255,255,0.05)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }
-            }
+            style={tab === key
+              ? { background: "#f97316", color: "#fff", boxShadow: "0 0 20px rgba(249,115,22,0.35)" }
+              : { background: "rgba(255,255,255,0.05)", color: "#94a3b8", border: "1px solid rgba(255,255,255,0.08)" }}
           >
             <Icon className="w-4 h-4" /> {label}
             {badge > 0 && (
@@ -1083,7 +1095,7 @@ function CMSDashboard() {
             ) : (
               <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
                 {avariasList.map((a) => (
-                  <div key={a.id} className="flex items-start gap-4 py-4 hover:bg-white/[0.02] transition-colors rounded-xl px-2">
+                  <div key={a.id} className="flex flex-col sm:flex-row gap-3 py-4 hover:bg-white/[0.02] transition-colors rounded-xl px-2">
                     {/* Left: type + description */}
                     <div
                       className="flex-1 min-w-0 cursor-pointer"
@@ -1102,29 +1114,17 @@ function CMSDashboard() {
                         <p className="text-xs text-slate-500 mt-1">IP: {a.reporterIp}</p>
                       )}
                     </div>
-                    {/* Middle: coordinates + map link */}
-                    <div className="shrink-0 text-center min-w-[140px]">
+                    {/* Right: coordinates + status + delete */}
+                    <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 shrink-0">
                       <p className="text-xs text-slate-400 font-mono">
-                        {a.lat.toFixed(6)}, {a.lng.toFixed(6)}
+                        {a.lat.toFixed(4)}, {a.lng.toFixed(4)}
                       </p>
-                      {(a.lat !== 0 || a.lng !== 0) ? (
-                        <a
-                          href={`https://www.google.com/maps?q=${a.lat},${a.lng}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors mt-1"
-                        >
+                      {(a.lat !== 0 || a.lng !== 0) && (
+                        <a href={`https://www.google.com/maps?q=${a.lat},${a.lng}`} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-orange-400 hover:text-orange-300 transition-colors">
                           <MapPin className="w-3 h-3" /> Ver no mapa
                         </a>
-                      ) : (
-                        <span className="text-xs text-slate-600 mt-1 block">GPS não capturado</span>
                       )}
-                      <p className="text-xs text-slate-600 mt-1">
-                        {new Date(a.createdAt).toLocaleString("pt-PT")}
-                      </p>
-                    </div>
-                    {/* Right: status select */}
-                    <div className="shrink-0">
                       <select
                         value={a.status}
                         onChange={(e) => updateAvariaStatus(a.id, e.target.value as AvariaReportRow["status"])}
@@ -1134,15 +1134,12 @@ function CMSDashboard() {
                         <option value="IN_PROGRESS">Em Curso</option>
                         <option value="RESOLVED">Resolvido</option>
                       </select>
+                      <button onClick={() => deleteAvaria(a.id)}
+                        className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors"
+                        style={{ background: "rgba(255,255,255,0.05)" }}>
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    {/* Far right: delete */}
-                    <button
-                      onClick={() => deleteAvaria(a.id)}
-                      className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors shrink-0"
-                      style={{ background: "rgba(255,255,255,0.05)" }}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
                   </div>
                 ))}
               </div>
@@ -1222,7 +1219,7 @@ function CMSDashboard() {
                     {/* Delete */}
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteMessage(msg.id); }}
-                      className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors shrink-0 opacity-0 group-hover:opacity-100"
+                      className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
                       style={{ background: "rgba(255,255,255,0.05)" }}
                     >
                       <Trash2 className="w-4 h-4" />
@@ -1424,7 +1421,7 @@ function CMSDashboard() {
               </span>
             </div>
             <h2 className="text-xl font-black text-slate-100">{viewingAlert.title}</h2>
-            <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/10">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Zona Afectada</p>
                 <p className="text-slate-200 font-semibold">{viewingAlert.zone}</p>
@@ -1491,7 +1488,7 @@ function CMSDashboard() {
                 {viewingAvaria.description}
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/10">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-xl bg-white/[0.03] border border-white/10">
               <div>
                 <p className="text-xs text-slate-500 uppercase tracking-widest mb-1">Coordenadas GPS</p>
                 {(viewingAvaria.lat !== 0 || viewingAvaria.lng !== 0) ? (
@@ -1781,7 +1778,7 @@ function CMSDashboard() {
           <Field label="Título do Alerta">
             <Input value={alertForm.title} onChange={(e) => setAlertForm({ ...alertForm, title: e.target.value })} placeholder="Interrupção não programada..." />
           </Field>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Data e Hora">
               <Input value={alertForm.date} onChange={(e) => setAlertForm({ ...alertForm, date: e.target.value })} placeholder="07 Mai 2026 · 02:15" />
             </Field>

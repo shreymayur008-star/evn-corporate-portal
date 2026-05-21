@@ -5,10 +5,10 @@ import type { ApiAlert } from "@/app/_types";
 
 export function CortesModal({ alertsList, loading }: { alertsList: ApiAlert[]; loading: boolean }) {
   return (
-    <div className="p-10 min-h-[600px]">
+    <div className="p-5 sm:p-10 min-h-[400px] sm:min-h-[600px]">
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-orange-500" style={{ background: "rgba(249,115,22,0.1)" }}><Activity className="w-8 h-8" /></div>
-        <div><h2 className="text-3xl font-black text-white">Avisos Oficiais e Cortes</h2><p className="text-slate-400">Boletim atualizado de manutenções na rede elétrica nacional.</p></div>
+        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-orange-500 shrink-0" style={{ background: "rgba(249,115,22,0.1)" }}><Activity className="w-7 h-7 sm:w-8 sm:h-8" /></div>
+        <div><h2 className="text-2xl sm:text-3xl font-black text-white">Avisos Oficiais e Cortes</h2><p className="text-slate-400 text-sm">Boletim atualizado de manutenções na rede elétrica nacional.</p></div>
       </div>
       {loading ? (
         <div className="space-y-6 max-w-3xl">
@@ -42,7 +42,7 @@ export function CortesModal({ alertsList, loading }: { alertsList: ApiAlert[]; l
                 <span className="text-xs font-bold px-3 py-1 rounded-full uppercase" style={{ background: cfg.badge.bg, color: cfg.badge.color }}>{cfg.label}</span>
               </div>
               <p className="text-slate-300 mb-4 leading-relaxed">{alert.description}</p>
-              <div className="flex gap-4 flex-wrap">
+              <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-4">
                 <div className="px-4 py-2 rounded-lg font-mono text-sm text-slate-300" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}><strong>Data:</strong> {alert.date}</div>
                 <div className="px-4 py-2 rounded-lg font-mono text-sm text-slate-300" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)" }}><strong>Duração:</strong> {alert.duration}</div>
               </div>

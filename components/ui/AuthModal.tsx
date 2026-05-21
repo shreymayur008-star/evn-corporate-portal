@@ -154,17 +154,20 @@ export default function AuthModal({ open, onClose, onSuccess, defaultTab = "logi
       {open && (
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[300] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-0 sm:p-4"
           style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(8px)" }}
           onClick={onClose}
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0, y: 20 }} animate={{ scale: 1, opacity: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="w-full max-w-md relative"
+            className="w-full sm:max-w-md relative rounded-t-[1.5rem] sm:rounded-[1.5rem]"
             onClick={(e) => e.stopPropagation()}
-            style={{ background: "rgba(9,9,11,0.97)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: "1.5rem", boxShadow: "0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(249,115,22,0.08)" }}
+            style={{ background: "rgba(9,9,11,0.97)", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(249,115,22,0.08)" }}
           >
+            {/* Mobile drag handle */}
+            <div className="sm:hidden w-10 h-1 rounded-full bg-white/20 mx-auto mt-3 mb-0 shrink-0" />
+
             {/* Header */}
             <div className="flex items-center justify-between p-6 pb-0">
               <div className="flex items-center gap-3">

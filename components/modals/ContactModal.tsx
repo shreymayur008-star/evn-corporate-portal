@@ -510,9 +510,9 @@ export function ContactModal() {
 
   return (
     <>
-    <div className="flex flex-col lg:flex-row min-h-[620px]">
+    <div className="flex flex-col lg:flex-row">
       {/* Left panel — contact channels */}
-      <div className="lg:w-5/12 p-8 flex flex-col justify-between" style={{ background: "rgba(5,5,15,0.6)", borderRight: "1px solid rgba(255,255,255,0.06)" }}>
+      <div className="w-full lg:w-5/12 p-5 sm:p-8 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-white/[0.06]" style={{ background: "rgba(5,5,15,0.6)" }}>
         <div>
           <p className="text-orange-500 font-bold uppercase text-xs tracking-widest mb-1">Central de Apoio</p>
           <h2 className="text-2xl font-black text-white mb-2">Apoio ao Cliente</h2>
@@ -578,7 +578,7 @@ export function ContactModal() {
       </div>
 
       {/* Right panel — email form */}
-      <div className="lg:w-7/12 p-8 flex flex-col">
+      <div className="w-full lg:w-7/12 p-5 sm:p-8 flex flex-col">
         <h3 className="text-xl font-black text-white mb-1">Enviar Mensagem</h3>
         <p className="text-slate-500 text-sm mb-6">Seleccione o assunto e preencha os dados. O botão de email abre o seu cliente de correio com um modelo profissional pré-preenchido.</p>
 
@@ -638,7 +638,7 @@ export function ContactModal() {
           </div>
 
           {/* Action buttons */}
-          <div className="flex gap-3 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
             <button
               type="button"
               onClick={handleSendEmail}

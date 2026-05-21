@@ -43,20 +43,20 @@ export function SearchModal({
 
   return (
     <div className="flex flex-col h-full min-h-[600px]">
-      <div className="p-10 pb-6 sticky top-0 z-10" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(8,8,12,0.96)", backdropFilter: "blur(16px)" }}>
-        <div className="flex items-center gap-4">
-          <Search className="w-8 h-8 text-orange-500 shrink-0" />
+      <div className="p-5 sm:p-10 pb-4 sm:pb-6 sticky top-0 z-10" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(8,8,12,0.96)", backdropFilter: "blur(16px)" }}>
+        <div className="flex items-center gap-3 sm:gap-4">
+          <Search className="w-6 h-6 sm:w-8 sm:h-8 text-orange-500 shrink-0" />
           <input type="text" autoFocus placeholder="O que procura na EVN?" value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            className="w-full text-3xl font-black text-white placeholder:text-slate-600 outline-none bg-transparent" />
+            className="w-full text-xl sm:text-3xl font-black text-white placeholder:text-slate-600 outline-none bg-transparent" />
         </div>
       </div>
-      <div className="p-10 flex-1">
+      <div className="p-5 sm:p-10 flex-1">
         {results.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {results.map((r, i) => (
               <div key={i} onClick={r.action}
-                className="p-6 rounded-2xl cursor-pointer group transition-all select-none"
+                className="p-4 sm:p-6 rounded-2xl cursor-pointer group transition-all select-none"
                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(249,115,22,0.5)"; e.currentTarget.style.background = "rgba(249,115,22,0.04)"; }}
                 onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}

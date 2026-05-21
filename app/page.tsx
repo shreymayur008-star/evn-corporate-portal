@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import toast from "react-hot-toast";
 import {
   Activity, CreditCard, FileText, Zap, FileSearch,
-  MessageSquare, Briefcase, Calculator, Search, Menu, Lock, ChevronRight,
+  MessageSquare, Briefcase, Calculator, Search, Menu, Lock, ChevronRight, X,
 } from "lucide-react";
 
 import type { ModalType, ApiNewsArticle, ApiServiceDoc, ApiAlert } from "./_types";
@@ -69,7 +69,10 @@ export default function EVNCorporatePortal() {
   const [authModalTab, setAuthModalTab]         = useState<"login" | "register">("login");
   const [currentUser, setCurrentUser]           = useState<{ id: number; nome: string; email: string } | null>(null);
   const [welcomeBackName, setWelcomeBackName]   = useState<string | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen]     = useState(false);
   const scrollProgress = useScrollProgress();
+
+  const openModal = (m: ModalType) => { setActiveModal(m); setMobileMenuOpen(false); };
 
   useEffect(() => {
     const load = async <T,>(
@@ -194,23 +197,34 @@ export default function EVNCorporatePortal() {
       </header>
 
       {/* Nav */}
-      <nav className="bg-[#050510]/80 backdrop-blur-xl text-white px-4 md:px-8 lg:px-16 py-4 border-b border-white/5">
+      <nav className="bg-[#050510]/80 backdrop-blur-xl text-white px-4 md:px-8 lg:px-16 py-4 border-b border-white/5 relative z-30">
         <div className="flex justify-between items-center max-w-7xl mx-auto">
+          {/* Desktop nav links */}
           <ul className="hidden md:flex items-center gap-8 font-medium text-sm">
             {[
               { label: "Início",       fn: () => window.scrollTo({ top: 0, behavior: "smooth" }), bold: true },
-              { label: "A Empresa",    fn: () => setActiveModal("EMPRESA") },
-              { label: "Imprensa",     fn: () => openNewsArticle(newsData[0]?.id ?? 1) },
-              { label: "Recrutamento", fn: () => setActiveModal("CONCURSOS") },
-              { label: "Projectos",    fn: () => setActiveModal("PROJECTOS") },
-              { label: "Contactos",    fn: () => setActiveModal("CONTACT") },
+              { label: "A Empresa",    fn: () => openModal("EMPRESA") },
+              { label: "Imprensa",     fn: () => { openNewsArticle(newsData[0]?.id ?? 1); setMobileMenuOpen(false); } },
+              { label: "Recrutamento", fn: () => openModal("CONCURSOS") },
+              { label: "Projectos",    fn: () => openModal("PROJECTOS") },
+              { label: "Contactos",    fn: () => openModal("CONTACT") },
             ].map(({ label, fn, bold }) => (
               <li key={label}>
                 <button type="button" onClick={fn} className={`${bold ? "font-bold text-orange-500" : "hover:text-orange-400 text-slate-300"} cursor-pointer transition-colors bg-transparent border-0 p-0 font-medium`}>{label}</button>
               </li>
             ))}
           </ul>
-          <Menu className="md:hidden w-6 h-6 cursor-pointer text-orange-500" />
+
+          {/* Mobile: hamburger */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(prev => !prev)}
+            className="md:hidden p-2 rounded-xl border border-white/10 text-slate-300 hover:bg-white/5 transition-colors"
+            aria-label="Menu"
+          >
+            {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+
           <div className="flex items-center gap-3">
             {currentUser ? (
               <button type="button" onClick={handleLogout}
@@ -239,35 +253,86 @@ export default function EVNCorporatePortal() {
                 Entrar / Registar
               </button>
             )}
-            <div onClick={() => setActiveModal("SEARCH")} className="flex items-center gap-2 text-sm font-medium hover:text-orange-400 cursor-pointer bg-white/5 px-5 py-2.5 rounded-full transition-colors border border-white/10"><Search className="w-4 h-4" /> Procurar no Portal</div>
+            <button type="button" onClick={() => { openModal("SEARCH"); }} className="flex items-center gap-2 text-sm font-medium hover:text-orange-400 cursor-pointer bg-white/5 px-5 py-2.5 rounded-full transition-colors border border-white/10"><Search className="w-4 h-4" /><span className="hidden sm:inline">Procurar no Portal</span></button>
           </div>
         </div>
       </nav>
 
+      {/* Mobile menu dropdown */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18 }}
+            className="fixed top-[130px] left-0 right-0 z-40 md:hidden border-b border-white/10"
+            style={{ background: "rgba(5,5,16,0.97)", backdropFilter: "blur(20px)" }}
+          >
+            <div className="flex flex-col p-4 gap-1 max-w-7xl mx-auto">
+              {[
+                { label: "Início",       fn: () => { window.scrollTo({ top: 0, behavior: "smooth" }); setMobileMenuOpen(false); } },
+                { label: "A Empresa",    fn: () => openModal("EMPRESA") },
+                { label: "Imprensa",     fn: () => { openNewsArticle(newsData[0]?.id ?? 1); setMobileMenuOpen(false); } },
+                { label: "Recrutamento", fn: () => openModal("CONCURSOS") },
+                { label: "Projectos",    fn: () => openModal("PROJECTOS") },
+                { label: "Contactos",    fn: () => openModal("CONTACT") },
+                { label: "Avisos Nacionais", fn: () => openModal("CORTES") },
+              ].map(({ label, fn }) => (
+                <button key={label} type="button" onClick={fn}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-white/5 text-slate-300 hover:text-orange-400 transition-colors text-left w-full border border-transparent hover:border-white/10">
+                  {label}
+                  <ChevronRight className="w-4 h-4 opacity-40" />
+                </button>
+              ))}
+              {/* Mobile auth */}
+              {currentUser ? (
+                <button type="button" onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                  className="flex items-center gap-2 px-4 py-3 rounded-xl hover:bg-white/5 text-slate-300 hover:text-orange-400 transition-colors w-full border border-transparent hover:border-white/10">
+                  <div className="w-5 h-5 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400 text-xs font-bold">
+                    {currentUser.nome.charAt(0).toUpperCase()}
+                  </div>
+                  Terminar Sessão ({currentUser.nome.split(" ")[0]})
+                </button>
+              ) : (
+                <button type="button"
+                  onClick={() => { setAuthModalTab("login"); setAuthModalOpen(true); setMobileMenuOpen(false); }}
+                  className="mx-4 my-1 px-4 py-3 rounded-xl bg-orange-500/15 border border-orange-500/30 text-orange-400 font-medium">
+                  Entrar / Registar
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Hero */}
-      <section className="w-full flex flex-col md:flex-row h-[500px] overflow-hidden relative">
-        <div className="w-full md:w-1/2 p-8 md:p-20 flex flex-col justify-center z-10 relative">
+      <section className="w-full flex flex-col md:flex-row min-h-[420px] md:h-[500px] overflow-hidden relative">
+        <div className="w-full md:w-1/2 px-4 sm:px-8 md:px-20 py-16 sm:py-20 flex flex-col justify-center z-10 relative">
           <div aria-hidden className="absolute inset-0 bg-gradient-to-r from-[#020617]/85 via-[#020617]/50 to-transparent pointer-events-none" />
           <div className="relative z-10">
             <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.85, duration: 0.7 }} className="font-mono text-sm uppercase tracking-[0.35em] mb-5 text-orange-500" style={{ textShadow: "0 0 20px rgba(249,115,22,0.45)" }}>ENERGIA INTELIGENTE</motion.p>
-            <div className="overflow-hidden"><motion.h2 initial={{ y: "110%" }} animate={{ y: 0 }} transition={{ delay: 3.05, duration: 0.9, ease: [0.16,1,0.3,1] }} className="text-5xl md:text-6xl font-black text-white leading-tight">PARA</motion.h2></div>
-            <div className="overflow-hidden"><motion.h2 initial={{ y: "110%" }} animate={{ y: 0 }} transition={{ delay: 3.2, duration: 0.9, ease: [0.16,1,0.3,1] }} className="text-5xl md:text-6xl font-black leading-tight" style={{ color: "#f97316", textShadow: "0 0 48px rgba(249,115,22,0.35)" }}>MOÇAMBIQUE.</motion.h2></div>
-            <motion.button initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 3.45, duration: 0.6 }} onClick={() => setActiveModal("AVARIA")} className="mt-10 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full w-max transition-all active:scale-95" style={{ boxShadow: "0 4px 20px rgba(249,115,22,0.4)" }}>Reportar Emergência</motion.button>
+            <div className="overflow-hidden"><motion.h2 initial={{ y: "110%" }} animate={{ y: 0 }} transition={{ delay: 3.05, duration: 0.9, ease: [0.16,1,0.3,1] }} className="text-4xl sm:text-5xl lg:text-7xl font-black text-white leading-tight">PARA</motion.h2></div>
+            <div className="overflow-hidden"><motion.h2 initial={{ y: "110%" }} animate={{ y: 0 }} transition={{ delay: 3.2, duration: 0.9, ease: [0.16,1,0.3,1] }} className="text-4xl sm:text-5xl lg:text-7xl font-black leading-tight" style={{ color: "#f97316", textShadow: "0 0 48px rgba(249,115,22,0.35)" }}>MOÇAMBIQUE.</motion.h2></div>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 3.45, duration: 0.6 }} className="mt-8 flex flex-col sm:flex-row gap-3">
+              <button onClick={() => openModal("AVARIA")} className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-full transition-all active:scale-95 text-center" style={{ boxShadow: "0 4px 20px rgba(249,115,22,0.4)" }}>Reportar Emergência</button>
+              <button onClick={() => openModal("CORTES")} className="w-full sm:w-auto bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 font-bold py-3 px-8 rounded-full transition-all active:scale-95 text-center">Avisos Nacionais</button>
+            </motion.div>
           </div>
         </div>
-        <div aria-hidden className="w-full md:w-1/2 h-full relative pointer-events-none" />
+        <div aria-hidden className="hidden md:block md:w-1/2 h-full relative pointer-events-none" />
       </section>
 
       {/* Services grid */}
       <motion.section className="py-20 px-4 max-w-6xl mx-auto" initial={{ opacity: 0, y: 50 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, margin: "-80px" }} transition={{ type: "spring", stiffness: 80, damping: 20 }}>
         <h2 className="text-3xl font-black text-center mb-3 text-white">Serviços Digitais Rápidos</h2>
         <p className="text-center text-slate-500 mb-12 text-sm tracking-wide">Acesso directo a todos os serviços EVN</p>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
           {SERVICES.map((s, i) => (
             <motion.div key={i} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ type: "spring", stiffness: 100, damping: 20, delay: i * 0.06 }}>
-              <TiltCard onClick={() => setActiveModal(s.action as ModalType)} className="p-6 rounded-2xl flex flex-col items-center group" style={{ background: "rgba(10,10,10,0.6)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 8px 32px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)" } as React.CSSProperties}>
-                <div className="w-16 h-16 rounded-full flex items-center justify-center mb-4 text-slate-500 group-hover:text-orange-500 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><s.icon className="w-8 h-8" /></div>
-                <span className="font-bold text-center text-sm text-slate-200 group-hover:text-white transition-colors">{s.label}</span>
+              <TiltCard onClick={() => openModal(s.action as ModalType)} className="p-4 sm:p-6 rounded-2xl flex flex-col items-center group min-h-[100px] sm:min-h-[120px] justify-center" style={{ background: "rgba(10,10,10,0.6)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 8px 32px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.06)" } as React.CSSProperties}>
+                <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-full flex items-center justify-center mb-3 text-slate-500 group-hover:text-orange-500 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><s.icon className="w-5 h-5 sm:w-7 sm:h-7" /></div>
+                <span className="font-bold text-center text-xs sm:text-sm text-slate-200 group-hover:text-white transition-colors">{s.label}</span>
               </TiltCard>
             </motion.div>
           ))}
@@ -317,11 +382,11 @@ export default function EVNCorporatePortal() {
                       />
                     </div>
                   )}
-                  <div className="flex-1 p-8 flex flex-col justify-center">
+                  <div className="flex-1 p-5 sm:p-8 flex flex-col justify-center">
                     <span className="inline-block px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 font-bold uppercase text-xs tracking-widest mb-4">
                       {newsData[0].tag}
                     </span>
-                    <h3 className="text-2xl sm:text-3xl font-black text-slate-100 mb-4 leading-tight group-hover:text-orange-300 transition-colors">
+                    <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-slate-100 mb-4 leading-tight group-hover:text-orange-300 transition-colors">
                       {newsData[0].title}
                     </h3>
                     <p className="text-slate-400 leading-relaxed line-clamp-3">{newsData[0].shortDesc}</p>

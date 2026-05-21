@@ -112,7 +112,7 @@ export default function AdminFloatingButton({ isAdmin }: AdminFloatingButtonProp
             animate={{ x: 0, opacity: 1 }}
             exit={{ x: "100%", opacity: 0 }}
             transition={{ type: "spring", damping: 28, stiffness: 300 }}
-            className="fixed right-0 top-0 bottom-0 z-[210] w-80 flex flex-col"
+            className="fixed right-0 top-0 bottom-0 z-[210] w-full sm:w-80 flex flex-col"
             style={{
               background: "rgba(9,9,11,0.96)",
               borderLeft: "1px solid rgba(255,255,255,0.08)",

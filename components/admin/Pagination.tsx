@@ -14,7 +14,7 @@ export default function Pagination({ page, total, limit, onPageChange }: Paginat
   const from = (page - 1) * limit + 1;
   const to = Math.min(page * limit, total);
   return (
-    <div className="flex items-center justify-between mt-4 px-4 py-3 bg-white/[0.02] border border-white/5 rounded-xl">
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mt-4 px-4 py-3 bg-white/[0.02] border border-white/5 rounded-xl">
       <span className="text-sm text-slate-500">
         A mostrar <strong className="text-slate-300">{from}–{to}</strong> de <strong className="text-slate-300">{total}</strong>
       </span>

@@ -41,10 +41,10 @@ export function AvariaModal({ closeModal }: { closeModal: () => void }) {
   };
 
   return (
-    <div className="p-10">
+    <div className="p-5 sm:p-10">
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-red-400" style={{ background: "rgba(239,68,68,0.12)" }}><ShieldAlert className="w-8 h-8" /></div>
-        <div><h2 className="text-3xl font-black text-white">Piquete EVN (Emergência)</h2><p className="text-slate-400">Reporte falhas elétricas graves na sua zona.</p></div>
+        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-red-400 shrink-0" style={{ background: "rgba(239,68,68,0.12)" }}><ShieldAlert className="w-7 h-7 sm:w-8 sm:h-8" /></div>
+        <div><h2 className="text-2xl sm:text-3xl font-black text-white">Piquete EVN (Emergência)</h2><p className="text-slate-400 text-sm">Reporte falhas elétricas graves na sua zona.</p></div>
       </div>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="p-4 rounded-xl flex items-start gap-3" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)" }}>
@@ -54,7 +54,7 @@ export function AvariaModal({ closeModal }: { closeModal: () => void }) {
 
         <div>
           <label className="text-sm font-bold text-slate-300 block mb-3">Tipo de Avaria</label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {AVARIA_TYPES.map(opt => {
               const active = data.type === opt;
               return (
@@ -69,23 +69,23 @@ export function AvariaModal({ closeModal }: { closeModal: () => void }) {
 
         <div>
           <label className="text-sm font-bold text-slate-300 block mb-2">Coordenadas GPS (Obrigatórias) <span className="text-red-400">*</span></label>
-          <div className="rounded-xl p-4 flex justify-between items-center" style={{ background: "rgba(255,255,255,0.05)", border: `2px solid ${errors.gps ? "#ef4444" : "rgba(255,255,255,0.1)"}` }}>
-            <div className="flex items-center gap-2 font-bold">
-              <MapPin className={`w-5 h-5 ${data.lat ? "text-green-400" : "text-slate-500"}`} />
-              {data.lat ? <span className="text-green-400">Localização ({data.lat.toFixed(4)}, {data.lng.toFixed(4)})</span> : <span className="text-slate-500">A aguardar sensor do dispositivo...</span>}
+          <div className="rounded-xl p-4 flex flex-col sm:flex-row justify-between gap-3 sm:items-center" style={{ background: "rgba(255,255,255,0.05)", border: `2px solid ${errors.gps ? "#ef4444" : "rgba(255,255,255,0.1)"}` }}>
+            <div className="flex items-center gap-2 font-bold min-w-0">
+              <MapPin className={`w-5 h-5 shrink-0 ${data.lat ? "text-green-400" : "text-slate-500"}`} />
+              {data.lat ? <span className="text-green-400 text-sm truncate">Localização ({data.lat.toFixed(4)}, {data.lng.toFixed(4)})</span> : <span className="text-slate-500 text-sm">A aguardar sensor do dispositivo...</span>}
             </div>
-            <button type="button" onClick={handleGPS} disabled={isCapturing} className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg text-sm font-bold transition-colors">{isCapturing ? "A ler..." : "Capturar"}</button>
+            <button type="button" onClick={handleGPS} disabled={isCapturing} className="w-full sm:w-auto bg-orange-500 hover:bg-orange-600 text-white px-6 py-3 rounded-lg text-sm font-bold transition-colors">{isCapturing ? "A ler..." : "Capturar"}</button>
           </div>
           {errors.gps && <p className="text-red-400 text-sm mt-2 font-bold flex items-center gap-1"><AlertCircle className="w-4 h-4" /> {errors.gps}</p>}
           {(data.lat === 0 && data.lng === 0) && !isCapturing && (
             <div className="mt-3">
               <p className="text-slate-500 text-xs mb-2">Ou introduza as coordenadas manualmente:</p>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
                   type="number"
                   step="0.000001"
                   placeholder="Latitude (ex: -25.9692)"
-                  className="flex-1 p-2 rounded-lg outline-none text-slate-300 text-sm"
+                  className="w-full p-2 rounded-lg outline-none text-slate-300 text-sm"
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
                   onFocus={e => (e.currentTarget.style.borderColor = "#f97316")}
                   onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}
@@ -95,7 +95,7 @@ export function AvariaModal({ closeModal }: { closeModal: () => void }) {
                   type="number"
                   step="0.000001"
                   placeholder="Longitude (ex: 32.5732)"
-                  className="flex-1 p-2 rounded-lg outline-none text-slate-300 text-sm"
+                  className="w-full p-2 rounded-lg outline-none text-slate-300 text-sm"
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
                   onFocus={e => (e.currentTarget.style.borderColor = "#f97316")}
                   onBlur={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)")}

@@ -37,10 +37,10 @@ export function NovaLigacaoModal({ closeModal }: { closeModal: () => void }) {
   };
 
   return (
-    <div className="p-10">
+    <div className="p-5 sm:p-10">
       <div className="flex items-center gap-4 mb-8">
-        <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-orange-500" style={{ background: "rgba(249,115,22,0.1)" }}><Zap className="w-8 h-8" /></div>
-        <div><h2 className="text-3xl font-black text-white">Nova Ligação EVN</h2><p className="text-slate-400">Pedido oficial de integração à rede elétrica.</p></div>
+        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl flex items-center justify-center text-orange-500 shrink-0" style={{ background: "rgba(249,115,22,0.1)" }}><Zap className="w-7 h-7 sm:w-8 sm:h-8" /></div>
+        <div><h2 className="text-2xl sm:text-3xl font-black text-white">Nova Ligação EVN</h2><p className="text-slate-400 text-sm">Pedido oficial de integração à rede elétrica.</p></div>
       </div>
       <div className="flex items-center gap-2 mb-2">
         <div className="h-1 flex-1 rounded-full bg-orange-500" />
@@ -57,7 +57,7 @@ export function NovaLigacaoModal({ closeModal }: { closeModal: () => void }) {
         {step === 1 && (
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
             <h3 className="text-lg font-bold text-white pb-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>Passo 1: Dados do Titular</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               <div>
                 <label className="text-sm font-bold text-slate-300 block mb-2">Nome Completo</label>
                 <input type="text"
@@ -119,12 +119,12 @@ export function NovaLigacaoModal({ closeModal }: { closeModal: () => void }) {
             </div>
           </motion.div>
         )}
-        <div className="flex gap-4 pt-4">
-          {step === 2 && <button type="button" onClick={() => setStep(1)} className="font-bold py-4 px-8 rounded-xl transition-all text-slate-200" style={{ background: "rgba(255,255,255,0.08)" }}>Voltar</button>}
+        <div className="flex gap-3 pt-4">
+          {step === 2 && <button type="button" onClick={() => setStep(1)} className="font-bold py-4 px-6 rounded-xl transition-all text-slate-200 shrink-0" style={{ background: "rgba(255,255,255,0.08)" }}>Voltar</button>}
           <button type="button" onClick={handleNext}
             disabled={step === 1 ? !step1Valid : !step2Valid}
             style={{ opacity: (step === 1 ? step1Valid : step2Valid) ? 1 : 0.42, cursor: (step === 1 ? step1Valid : step2Valid) ? "pointer" : "not-allowed" }}
-            className="flex-1 bg-orange-500 text-white font-bold py-4 rounded-xl transition-opacity shadow-lg shadow-orange-500/20">
+            className="w-full bg-orange-500 text-white font-bold py-4 rounded-xl transition-opacity shadow-lg shadow-orange-500/20">
             {step === 1 ? "Continuar" : "Submeter Pedido EVN"}
           </button>
         </div>

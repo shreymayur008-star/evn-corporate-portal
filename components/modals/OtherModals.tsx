@@ -5,11 +5,11 @@ import type { ApiNewsArticle } from "@/app/_types";
 
 export function EmpresaModal() {
   return (
-    <div className="p-10 text-center">
-      <Building className="w-20 h-20 text-orange-500 mx-auto mb-6" />
-      <h2 className="text-4xl font-black text-white mb-6">A Nossa Missão</h2>
-      <p className="text-lg text-slate-300 mb-10 leading-relaxed max-w-2xl mx-auto">A Eletricidade Vantara Nacional (EVN) existe para iluminar o país, impulsionando o desenvolvimento com energia elétrica inteligente, fiável e sustentável.</p>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-left max-w-3xl mx-auto">
+    <div className="p-5 sm:p-10 text-center">
+      <Building className="w-16 h-16 sm:w-20 sm:h-20 text-orange-500 mx-auto mb-6" />
+      <h2 className="text-3xl sm:text-4xl font-black text-white mb-6">A Nossa Missão</h2>
+      <p className="text-base sm:text-lg text-slate-300 mb-10 leading-relaxed max-w-2xl mx-auto">A Eletricidade Vantara Nacional (EVN) existe para iluminar o país, impulsionando o desenvolvimento com energia elétrica inteligente, fiável e sustentável.</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 text-left max-w-3xl mx-auto">
         <div className="p-6 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
           <h4 className="font-black text-white mb-2 text-xl">Visão EVN</h4>
           <p className="text-sm text-slate-400">Ser a rede elétrica de referência tecnológica no continente, com foco absoluto no consumidor.</p>
@@ -29,9 +29,9 @@ export function ProjectosModal() {
     { title: "Nova Linha de Transmissão", desc: "Construção de linha de 400kV para escoamento eficiente.", badge: "Fase Inicial", badgeColor: "#f97316", progress: 15, img: "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=800&q=80" },
   ];
   return (
-    <div className="p-10">
-      <div className="text-center mb-10"><HardHat className="w-16 h-16 text-orange-500 mx-auto mb-4" /><h2 className="text-3xl font-black text-white">Projectos EVN em Curso</h2><p className="text-slate-400 mt-2">A construir o futuro energético do país.</p></div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="p-5 sm:p-10">
+      <div className="text-center mb-8 sm:mb-10"><HardHat className="w-14 h-14 sm:w-16 sm:h-16 text-orange-500 mx-auto mb-4" /><h2 className="text-2xl sm:text-3xl font-black text-white">Projectos EVN em Curso</h2><p className="text-slate-400 mt-2 text-sm">A construir o futuro energético do país.</p></div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
         {projects.map(p => (
           <div key={p.title} className="rounded-2xl overflow-hidden group" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
             <div className="h-40 overflow-hidden relative">
@@ -63,10 +63,10 @@ export function NewsReaderModal({ article, closeModal }: { article: ApiNewsArtic
           <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-[#08080c] to-transparent pointer-events-none" />
         </div>
       )}
-      <div className={`p-10 ${article.imgUrl ? "relative -mt-16 rounded-t-[2rem]" : ""}`} style={{ background: "#08080c" }}>
+      <div className={`p-5 sm:p-10 ${article.imgUrl ? "relative -mt-16 rounded-t-[2rem]" : ""}`} style={{ background: "#08080c" }}>
         <span className="bg-orange-500 text-white text-xs px-3 py-1.5 rounded-full font-bold uppercase tracking-wider">{article.tag}</span>
-        <h2 className="text-3xl font-black text-white mt-4 mb-6 leading-tight">{article.title}</h2>
-        <div className="leading-relaxed text-lg">
+        <h2 className="text-2xl sm:text-3xl font-black text-white mt-4 mb-6 leading-tight">{article.title}</h2>
+        <div className="leading-relaxed text-base sm:text-lg">
           <p className="mb-6 font-medium text-slate-200">{article.shortDesc}</p>
           <div className="prose-evn mb-8" dangerouslySetInnerHTML={{ __html: article.fullText }} />
         </div>

@@ -8,9 +8,9 @@ export function ConcursosModal() {
   const [selected, setSelected] = useState(1);
 
   return (
-    <div className="flex flex-col md:flex-row h-full min-h-[600px]">
-      <div className="md:w-1/3 flex flex-col h-full" style={{ background: "rgba(0,0,0,0.3)", borderRight: "1px solid rgba(255,255,255,0.08)" }}>
-        <div className="p-8 text-white" style={{ background: "rgba(0,0,0,0.4)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+    <div className="flex flex-col sm:flex-row h-full min-h-[500px] sm:min-h-[600px]">
+      <div className="w-full sm:w-1/3 flex flex-col" style={{ background: "rgba(0,0,0,0.3)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+        <div className="p-5 sm:p-8 text-white" style={{ background: "rgba(0,0,0,0.4)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
           <h2 className="text-2xl font-black mb-2">Vagas EVN</h2>
           <p className="text-slate-400 text-sm">Junte-se à equipa que eletrifica a nação.</p>
         </div>
@@ -33,7 +33,7 @@ export function ConcursosModal() {
         </div>
       </div>
 
-      <div className="md:w-2/3 p-10">
+      <div className="w-full sm:w-2/3 p-5 sm:p-10">
         {selected === 1 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <span className="text-orange-500 font-bold text-sm tracking-widest uppercase mb-2 block">Ref: EVN-ENG-042</span>

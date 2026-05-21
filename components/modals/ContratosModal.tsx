@@ -20,8 +20,8 @@ export function ContratosModal() {
   };
 
   return (
-    <div className="p-10">
-      <div className="text-center mb-10">
+    <div className="p-5 sm:p-10">
+      <div className="text-center mb-8 sm:mb-10">
         <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6" style={{ background: "rgba(249,115,22,0.1)" }}><FileSearch className="w-10 h-10 text-orange-500" /></div>
         <h2 className="text-3xl font-black text-white mb-2">Gestão de Contratos EVN</h2>
         <p className="text-slate-400">Consulte o estado da sua ligação e titularidade.</p>
@@ -44,7 +44,7 @@ export function ContratosModal() {
             <div><p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Titular do Contrato</p><h3 className="text-2xl font-black text-white">Cliente Verificado</h3><p className="text-sm text-slate-400 font-mono mt-1">NUIT: {search}</p></div>
             <span className="text-xs font-bold px-3 py-1 rounded-full text-green-400" style={{ background: "rgba(22,163,74,0.15)", border: "1px solid rgba(22,163,74,0.3)" }}>Activo na Rede EVN</span>
           </div>
-          <div className="grid grid-cols-2 gap-4 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
             <div className="p-4 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)" }}><p className="text-xs text-slate-500 font-bold mb-1">Tipo de Ligação</p><p className="font-bold text-white">Doméstica - Monofásica</p></div>
             <div className="p-4 rounded-2xl" style={{ background: "rgba(255,255,255,0.04)" }}><p className="text-xs text-slate-500 font-bold mb-1">Situação Financeira</p><p className="font-bold text-green-400">Sem dívidas à EVN</p></div>
           </div>

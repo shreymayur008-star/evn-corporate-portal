@@ -32,14 +32,14 @@ export function CredelecModal({ closeModal }: { closeModal: () => void }) {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-full min-h-[500px]">
-      <div className="bg-gradient-to-br from-orange-500 to-orange-600 md:w-2/5 p-10 text-white flex flex-col justify-center relative overflow-hidden">
+    <div className="flex flex-col sm:flex-row h-full min-h-[500px]">
+      <div className="hidden sm:flex bg-gradient-to-br from-orange-500 to-orange-600 sm:w-2/5 p-10 text-white flex-col justify-center relative overflow-hidden">
         <div aria-hidden className="absolute -top-24 -left-24 w-64 h-64 bg-white/10 rounded-full blur-3xl pointer-events-none" />
         <Zap className="w-16 h-16 mb-6 text-orange-100 relative z-10" />
         <h2 className="text-3xl font-black mb-4 relative z-10">Recarga<br />Credelec EVN</h2>
         <p className="text-orange-100 text-sm leading-relaxed relative z-10">Integração oficial e segura com M-Pesa, e-Mola, mKesh e bancos nacionais.</p>
       </div>
-      <div className="md:w-3/5 p-10 flex flex-col justify-center">
+      <div className="w-full sm:w-3/5 p-6 sm:p-10 flex flex-col justify-center">
         {step === "INPUT" && (
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>

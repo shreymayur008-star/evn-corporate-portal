@@ -6,10 +6,10 @@ import { Zap, PhoneCall, Mail } from "lucide-react";
 export function Footer() {
   return (
     <footer className="border-t border-white/5 mt-8" style={{ background: "rgba(2,6,23,0.95)" }}>
-      <div className="max-w-7xl mx-auto px-4 md:px-8 lg:px-16 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 lg:px-16 py-12 sm:py-16">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 sm:gap-12">
           {/* Brand */}
-          <div className="md:col-span-1">
+          <div className="col-span-2 lg:col-span-1 mb-2 lg:mb-0">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 border-2 border-orange-500 rounded-full flex items-center justify-center" style={{ boxShadow: "0 0 16px rgba(249,115,22,0.25)" }}>
                 <Zap className="w-5 h-5 text-orange-500" />
@@ -35,7 +35,7 @@ export function Footer() {
                 { label: "Meus Contratos",     href: "/#contratos" },
               ].map(({ label, href }) => (
                 <li key={label}>
-                  <Link href={href} className="text-slate-500 hover:text-orange-400 text-sm transition-colors">
+                  <Link href={href} className="text-slate-500 hover:text-orange-400 text-sm transition-colors py-2 block">
                     {label}
                   </Link>
                 </li>
@@ -54,7 +54,7 @@ export function Footer() {
                 { label: "Imprensa",         href: "/imprensa" },
               ].map(({ label, href }) => (
                 <li key={label}>
-                  <Link href={href} className="text-slate-500 hover:text-orange-400 text-sm transition-colors">
+                  <Link href={href} className="text-slate-500 hover:text-orange-400 text-sm transition-colors py-2 block">
                     {label}
                   </Link>
                 </li>
@@ -63,7 +63,7 @@ export function Footer() {
           </div>
 
           {/* Legal */}
-          <div>
+          <div className="col-span-2 sm:col-span-1">
             <h5 className="font-black text-white text-sm uppercase tracking-widest mb-5">Legal</h5>
             <ul className="space-y-3">
               {[
@@ -73,7 +73,7 @@ export function Footer() {
                 { label: "Acessibilidade",          href: "/acessibilidade" },
               ].map(({ label, href }) => (
                 <li key={label}>
-                  <Link href={href} className="text-slate-500 hover:text-orange-400 text-sm transition-colors">
+                  <Link href={href} className="text-slate-500 hover:text-orange-400 text-sm transition-colors py-2 block">
                     {label}
                   </Link>
                 </li>
@@ -82,7 +82,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div className="mt-12 pt-8 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-2">
           <p className="text-slate-600 text-sm">© 2026 Eletricidade Vantara Nacional, E.P. Todos os direitos reservados.</p>
           <p className="text-slate-700 text-xs">Portal Digital EVN — Versão 3.0</p>
         </div>

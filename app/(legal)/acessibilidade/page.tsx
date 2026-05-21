@@ -5,7 +5,7 @@ export const metadata = { title: "Acessibilidade — EVN" };
 
 export default function AcessibilidadePage() {
   return (
-    <main className="min-h-screen bg-[#020617] text-slate-300 px-4 py-16">
+    <main className="min-h-screen bg-[#020617] text-slate-300 px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
       <div className="max-w-3xl mx-auto">
         <Link href="/" className="inline-flex items-center gap-2 text-orange-400 hover:text-orange-300 mb-10 text-sm font-medium transition-colors">
           <ArrowLeft className="w-4 h-4" /> Voltar ao Portal EVN
