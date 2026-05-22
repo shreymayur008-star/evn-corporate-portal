@@ -27,7 +27,7 @@ function ToolbarButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`p-2 rounded transition-colors ${
+      className={`p-2 rounded min-h-[36px] min-w-[36px] flex items-center justify-center transition-colors ${
         active ? "bg-orange-500/20 text-orange-400" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
       } disabled:opacity-30 disabled:cursor-not-allowed`}
     >
@@ -56,7 +56,7 @@ export default function RichTextEditor({ value, onChange, placeholder, error }: 
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: "prose-evn min-h-[240px] focus:outline-none px-4 py-3",
+        class: "prose-evn min-h-[160px] sm:min-h-[240px] focus:outline-none px-3 py-3 text-base",
       },
     },
     onUpdate: ({ editor }) => {

@@ -138,7 +138,8 @@ function Modal({ open, onClose, title, children }: {
           onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
         >
           <motion.div
-            initial={{ scale: 0.97, y: 40 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.97, y: 40 }}
+            initial={{ y: "100%", opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: "100%", opacity: 0 }}
+            transition={{ type: "spring", damping: 30, stiffness: 300 }}
             className="w-full sm:max-w-2xl rounded-t-[1.5rem] sm:rounded-3xl flex flex-col max-h-[92vh] sm:max-h-[85vh]"
             style={{
               background: "rgba(8,8,12,0.97)",
@@ -152,8 +153,8 @@ function Modal({ open, onClose, title, children }: {
             <div className="flex items-center justify-between px-5 sm:px-8 py-4 sm:py-5 shrink-0"
               style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
               <h3 className="font-black text-white text-base sm:text-lg">{title}</h3>
-              <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-1">
-                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+              <button type="button" onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-2 min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-white/5">
+                <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-5 sm:p-8 overflow-y-auto modal-scroll">{children}</div>
@@ -819,7 +820,7 @@ function CMSDashboard() {
       {/* ── NEWS TAB ────────────────────────────────────────────────────────── */}
       {tab === "news" && (
         <GlassPanel>
-          <div className="flex items-center justify-between p-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="flex items-center justify-between p-4 sm:p-6 flex-wrap gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             <h2 className="font-black text-white">
               Notícias <span className="text-slate-500 font-normal text-sm ml-2">({newsTotal})</span>
             </h2>
@@ -884,7 +885,7 @@ function CMSDashboard() {
                           {n.status === "SCHEDULED" && <span className="text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-400 font-bold uppercase">Agendado{n.publishAt ? ` · ${new Date(n.publishAt).toLocaleString("pt-PT")}` : ""}</span>}
                           {n.status === "ARCHIVED" && <span className="text-xs px-2 py-0.5 rounded bg-zinc-500/20 text-zinc-500 font-bold uppercase">Arquivado</span>}
                         </div>
-                        <p className="font-bold text-white text-sm leading-snug truncate">{n.title}</p>
+                        <p className="font-bold text-white text-sm leading-snug line-clamp-2 break-words">{n.title}</p>
                         <p className="text-xs text-slate-500 mt-1 line-clamp-1">{n.shortDesc}</p>
                       </div>
                     </div>
@@ -904,7 +905,7 @@ function CMSDashboard() {
       {/* ── SERVICES TAB ────────────────────────────────────────────────────── */}
       {tab === "services" && (
         <GlassPanel>
-          <div className="flex items-center justify-between p-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="flex items-center justify-between p-4 sm:p-6 flex-wrap gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             <h2 className="font-black text-white">
               Documentos e Serviços <span className="text-slate-500 font-normal text-sm ml-2">({servicesTotal})</span>
             </h2>
@@ -948,21 +949,23 @@ function CMSDashboard() {
             ) : (
               <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
                 {servicesList.map((s) => (
-                  <div key={s.id} className="flex items-center gap-4 py-4 hover:bg-white/[0.02] transition-colors rounded-xl px-2">
-                    <div className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0" style={{ background: "rgba(59,130,246,0.1)" }}>
-                      <FileText className="w-6 h-6 text-blue-400" />
+                  <div key={s.id} className="flex items-start gap-3 py-4 hover:bg-white/[0.02] transition-colors rounded-xl px-2">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ background: "rgba(59,130,246,0.1)" }}>
+                      <FileText className="w-5 h-5 text-blue-400" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-bold text-white text-sm">{s.title}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{s.fileSize} · {s.description}</p>
+                      <p className="font-bold text-white text-sm line-clamp-2 break-words leading-snug">{s.title}</p>
+                      <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 break-words">{s.fileSize} · {s.description}</p>
+                      <div className="mt-2">
+                        <PdfLink
+                          type="FORMULARIO"
+                          filename={s.title}
+                          label="Pré-visualizar"
+                          className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-orange-400 border border-white/10 hover:border-orange-500/30 px-2 py-1 rounded-lg transition-colors"
+                        />
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <PdfLink
-                        type="FORMULARIO"
-                        filename={s.title}
-                        label="Pré-visualizar"
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-700/50 border border-white/10 text-slate-400 hover:text-orange-400 hover:border-orange-500/30 transition-colors"
-                      />
+                    <div className="flex items-center gap-1 shrink-0">
                       <button onClick={() => openServiceEdit(s)} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
                       <button onClick={() => deleteService(s.id)} className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Trash2 className="w-4 h-4" /></button>
                     </div>
@@ -978,7 +981,7 @@ function CMSDashboard() {
       {/* ── ALERTS TAB ──────────────────────────────────────────────────────── */}
       {tab === "alerts" && (
         <GlassPanel>
-          <div className="flex items-center justify-between p-6" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <div className="flex items-center justify-between p-4 sm:p-6 flex-wrap gap-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
             <h2 className="font-black text-white">
               Alertas de Rede <span className="text-slate-500 font-normal text-sm ml-2">({alertsTotal})</span>
             </h2>
@@ -1032,8 +1035,8 @@ function CMSDashboard() {
                       onClick={() => setViewingAlert(a)}
                       title="Clique para ver detalhes"
                     >
-                      <p className="font-bold text-white text-sm">{a.title}</p>
-                      <p className="text-xs text-slate-500 mt-0.5">{a.zone} · {a.date} · {a.duration}</p>
+                      <p className="font-bold text-white text-sm line-clamp-2 break-words">{a.title}</p>
+                      <p className="text-xs text-slate-500 mt-0.5 truncate">{a.zone} · {a.date} · {a.duration}</p>
                     </div>
                     <div className="flex gap-2 shrink-0">
                       <button onClick={(e) => { e.stopPropagation(); openAlertEdit(a); }} className="p-2 rounded-xl text-slate-500 hover:text-orange-400 transition-colors" style={{ background: "rgba(255,255,255,0.05)" }}><Pencil className="w-4 h-4" /></button>
@@ -1107,7 +1110,7 @@ function CMSDashboard() {
                           {a.type}
                         </span>
                       </div>
-                      <p className="text-sm text-slate-200 leading-snug">
+                      <p className="text-sm text-slate-200 leading-snug break-words">
                         {a.description.length > 100 ? a.description.slice(0, 100) + "…" : a.description}
                       </p>
                       {a.reporterIp && (
@@ -1207,8 +1210,8 @@ function CMSDashboard() {
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className="font-bold text-slate-100">{msg.nome}</span>
-                        <span className="text-slate-500 text-sm">{msg.email}</span>
+                        <span className="font-bold text-slate-100 truncate">{msg.nome}</span>
+                        <span className="text-slate-500 text-sm truncate max-w-[160px]">{msg.email}</span>
                         <span className="text-slate-700 text-xs">·</span>
                         <span className="text-slate-600 text-xs">{new Date(msg.createdAt).toLocaleString("pt-PT")}</span>
                       </div>
@@ -1219,7 +1222,7 @@ function CMSDashboard() {
                     {/* Delete */}
                     <button
                       onClick={(e) => { e.stopPropagation(); deleteMessage(msg.id); }}
-                      className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors shrink-0 sm:opacity-0 sm:group-hover:opacity-100"
+                      className="p-2 rounded-xl text-slate-500 hover:text-red-400 transition-colors shrink-0"
                       style={{ background: "rgba(255,255,255,0.05)" }}
                     >
                       <Trash2 className="w-4 h-4" />
