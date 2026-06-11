@@ -112,3 +112,12 @@ model PublicSession {
   expiresAt DateTime
   createdAt DateTime   @default(now())
 }
+
+model OtpVerification {
+  id        String   @id @default(cuid())
+  email     String
+  otp       String
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

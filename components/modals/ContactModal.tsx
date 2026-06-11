@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Phone, MessageCircle, Mail, Send, ChevronDown, Copy, X } from "lucide-react";
+import { useState, useRef } from "react";
+import { Phone, MessageCircle, Mail, Send, ChevronDown, Copy, X, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 
 type ContactTopic = "geral" | "fatura" | "avaria" | "nova-ligacao" | "titularidade" | "eficiencia" | "tarifas" | "credelec";
@@ -452,8 +452,16 @@ ${footer}`,
 export function ContactModal() {
   const [form, setForm]       = useState({ nome: "", email: "", mensagem: "" });
   const [topic, setTopic]     = useState<ContactTopic>("geral");
-  const [submitting, setSubmitting] = useState(false);
   const [emailTemplateModal, setEmailTemplateModal] = useState<{ open: boolean; subject: string; body: string } | null>(null);
+
+  // OTP flow state
+  const [otpStep, setOtpStep]         = useState<'form' | 'otp' | 'success'>('form');
+  const [otpValue, setOtpValue]       = useState('');
+  const [otpError, setOtpError]       = useState('');
+  const [otpLoading, setOtpLoading]   = useState(false);
+  const [resendTimer, setResendTimer] = useState(0);
+  const [otpRef, setOtpRef]           = useState('');
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleSendEmail = () => {
     const { subject, body } = getEmailTemplate(topic, form.nome, form.mensagem);
@@ -467,43 +475,114 @@ export function ContactModal() {
     setEmailTemplateModal({ open: true, subject, body });
   };
 
-  const handleSubmitMessage = async () => {
+  const startResendTimer = () => {
+    setResendTimer(60);
+    timerRef.current = setInterval(() => {
+      setResendTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleSendOtp = async () => {
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      const res = await fetch('/api/contact/send-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome:     form.nome,
+          email:    form.email,
+          mensagem: form.mensagem,
+          topic:    topic,
+        }),
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) {
+        setOtpError(data.error || 'Failed to send code');
+        return;
+      }
+      setOtpStep('otp');
+      startResendTimer();
+      toast.success('Verification code sent to your email!');
+    } catch {
+      setOtpError('Connection error. Please try again.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpValue.length !== 6) {
+      setOtpError('Please enter the full 6-digit code');
+      return;
+    }
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      const res = await fetch('/api/contact/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email:    form.email,
+          otp:      otpValue,
+          nome:     form.nome,
+          mensagem: form.mensagem,
+          topic:    topic,
+        }),
+      });
+      const data = await res.json() as { error?: string; reference?: string };
+      if (!res.ok) {
+        setOtpError(data.error || 'Invalid code');
+        return;
+      }
+      setOtpRef(data.reference ?? '');
+      setOtpStep('success');
+      clearInterval(timerRef.current!);
+      toast.success('Message verified and sent!');
+    } catch {
+      setOtpError('Connection error. Please try again.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (resendTimer > 0) return;
+    setOtpValue('');
+    setOtpError('');
+    await handleSendOtp();
+  };
+
+  const resetOtpFlow = () => {
+    setOtpStep('form');
+    setOtpValue('');
+    setOtpError('');
+    setResendTimer(0);
+    if (timerRef.current) clearInterval(timerRef.current);
+    setForm({ nome: "", email: "", mensagem: "" });
+  };
+
+  const handleSubmitForm = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!form.nome.trim() || form.nome.trim().length < 2) {
-      toast.error("Insira o seu nome.");
+      toast.error('Please fill in your name (at least 2 characters).');
+      return;
+    }
+    if (!form.email.trim()) {
+      toast.error('Email is required for verification.');
       return;
     }
     if (!form.mensagem.trim() || form.mensagem.trim().length < 5) {
-      toast.error("A mensagem é demasiado curta.");
+      toast.error('Message must be at least 5 characters.');
       return;
     }
-
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/contact", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nome: form.nome.trim(),
-          email: form.email?.trim() || "",
-          mensagem: form.mensagem.trim(),
-          assunto: topic || "geral",
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error((data as { error?: string }).error || `HTTP ${res.status}`);
-      }
-
-      toast.success("Mensagem enviada com sucesso! Responderemos em 24–48 horas.");
-      setForm({ nome: "", email: "", mensagem: "" });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Erro desconhecido.";
-      toast.error(`Não foi possível enviar: ${msg}`);
-      console.error("[ContactModal] submit error:", err);
-    } finally {
-      setSubmitting(false);
-    }
+    await handleSendOtp();
   };
 
   const inputBase = "w-full p-3.5 rounded-xl outline-none transition-colors text-slate-100 placeholder:text-slate-600 focus:border-orange-500 bg-white/[0.05] border border-white/10 text-sm";
@@ -577,91 +656,202 @@ export function ContactModal() {
         </div>
       </div>
 
-      {/* Right panel — email form */}
+      {/* Right panel — form / OTP / success */}
       <div className="w-full lg:w-7/12 p-5 sm:p-8 flex flex-col">
-        <h3 className="text-xl font-black text-white mb-1">Enviar Mensagem</h3>
-        <p className="text-slate-500 text-sm mb-6">Seleccione o assunto e preencha os dados. O botão de email abre o seu cliente de correio com um modelo profissional pré-preenchido.</p>
 
-        <form className="space-y-4 flex-1 flex flex-col">
-          {/* Name */}
-          <div>
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Nome</label>
-            <input type="text" placeholder="O seu nome completo" value={form.nome}
-              onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
-              className={inputBase} />
-          </div>
+        {/* ── Form Step ───────────────────────────────────── */}
+        {otpStep === 'form' && (
+          <>
+            <h3 className="text-xl font-black text-white mb-1">Enviar Mensagem</h3>
+            <p className="text-slate-500 text-sm mb-6">Preencha os dados e verifique o seu email com o código enviado.</p>
 
-          {/* Email (optional) */}
-          <div>
-            <label className="block text-xs text-slate-500 uppercase tracking-widest mb-2 font-medium">
-              EMAIL <span className="text-slate-600 normal-case tracking-normal">(opcional — para receber resposta)</span>
-            </label>
-            <input
-              type="email"
-              placeholder="O seu email"
-              value={form.email || ""}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border-2 border-white/10 focus:border-orange-500 outline-none text-slate-100 placeholder:text-slate-600 text-sm transition-colors"
-            />
-          </div>
+            <form className="space-y-4 flex-1 flex flex-col" onSubmit={handleSubmitForm}>
+              {/* Name */}
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Nome</label>
+                <input type="text" placeholder="O seu nome completo" value={form.nome}
+                  onChange={e => setForm(f => ({ ...f, nome: e.target.value }))}
+                  className={inputBase} />
+              </div>
 
-          {/* Topic selector */}
-          <div>
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Assunto</label>
-            <div className="relative">
-              <select
-                value={topic}
-                onChange={e => setTopic(e.target.value as ContactTopic)}
-                className={`${inputBase} appearance-none pr-10 cursor-pointer`}
-                style={{ background: "rgba(255,255,255,0.05)" }}
-              >
-                {(Object.entries(TOPIC_LABELS) as [ContactTopic, string][]).map(([val, label]) => (
-                  <option key={val} value={val} style={{ background: "#0d0d14", color: "#e2e8f0" }}>{label}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+              {/* Email — required for OTP */}
+              <div>
+                <label className="block text-xs text-slate-500 uppercase tracking-widest mb-2 font-medium">
+                  EMAIL <span className="text-orange-500/70 normal-case tracking-normal">(obrigatório — para receber o código)</span>
+                </label>
+                <input
+                  type="email"
+                  placeholder="O seu email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl bg-white/[0.05] border-2 border-white/10 focus:border-orange-500 outline-none text-slate-100 placeholder:text-slate-600 text-sm transition-colors"
+                />
+              </div>
+
+              {/* Topic selector */}
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Assunto</label>
+                <div className="relative">
+                  <select
+                    value={topic}
+                    onChange={e => setTopic(e.target.value as ContactTopic)}
+                    className={`${inputBase} appearance-none pr-10 cursor-pointer`}
+                    style={{ background: "rgba(255,255,255,0.05)" }}
+                  >
+                    {(Object.entries(TOPIC_LABELS) as [ContactTopic, string][]).map(([val, label]) => (
+                      <option key={val} value={val} style={{ background: "#0d0d14", color: "#e2e8f0" }}>{label}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Message */}
+              <div className="flex-1 flex flex-col">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                  Mensagem
+                </label>
+                <textarea
+                  rows={5}
+                  placeholder="Descreva o seu pedido ou situação em detalhe…"
+                  value={form.mensagem}
+                  onChange={e => setForm(f => ({ ...f, mensagem: e.target.value }))}
+                  className={`${inputBase} resize-none flex-1`}
+                />
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleSendEmail}
+                  className="flex-1 flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-600 bg-slate-800/60 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors font-medium text-sm"
+                >
+                  <Mail className="w-4 h-4" />
+                  Enviar por Email
+                </button>
+                <button
+                  type="submit"
+                  disabled={otpLoading}
+                  className="flex-1 flex items-center gap-2 px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                  {otpLoading ? 'A enviar…' : 'Enviar Mensagem'}
+                </button>
+              </div>
+
+              <p className="text-slate-600 text-xs text-center">
+                &quot;Enviar por Email&quot; abre o seu cliente de correio com o modelo do assunto seleccionado pré-preenchido.
+              </p>
+            </form>
+          </>
+        )}
+
+        {/* ── OTP Verification Step ─────────────────────── */}
+        {otpStep === 'otp' && (
+          <div className="flex flex-col items-center text-center px-4 py-6 gap-5 flex-1 justify-center">
+            <div className="w-16 h-16 rounded-full bg-orange-500/15 border border-orange-500/30 flex items-center justify-center">
+              <Mail className="w-7 h-7 text-orange-400" />
             </div>
-          </div>
 
-          {/* Message */}
-          <div className="flex-1 flex flex-col">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-              Mensagem
-            </label>
-            <textarea
-              rows={5}
-              placeholder="Descreva o seu pedido ou situação em detalhe…"
-              value={form.mensagem}
-              onChange={e => setForm(f => ({ ...f, mensagem: e.target.value }))}
-              className={`${inputBase} resize-none flex-1`}
+            <div>
+              <h3 className="text-slate-100 font-bold text-lg">Verifique o seu email</h3>
+              <p className="text-slate-400 text-sm mt-1">
+                Enviámos um código de 6 dígitos para
+              </p>
+              <p className="text-orange-400 font-bold text-sm mt-0.5">
+                {form.email}
+              </p>
+            </div>
+
+            {/* OTP Input */}
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              maxLength={6}
+              value={otpValue}
+              onChange={e => {
+                const v = e.target.value.replace(/\D/g, '');
+                setOtpValue(v);
+                setOtpError('');
+              }}
+              placeholder="000000"
+              className="w-48 text-center text-3xl font-mono font-bold tracking-[0.5em] px-4 py-3 rounded-xl border-2 border-white/10 focus:border-orange-500 outline-none text-slate-100 placeholder:text-slate-700 transition-colors"
+              style={{ background: 'rgba(255,255,255,0.05)' }}
             />
-          </div>
 
-          {/* Action buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            {otpError && (
+              <p className="text-red-400 text-sm">{otpError}</p>
+            )}
+
             <button
               type="button"
-              onClick={handleSendEmail}
-              className="flex-1 flex items-center gap-2 px-5 py-3 rounded-xl border border-slate-600 bg-slate-800/60 text-slate-300 hover:bg-slate-700 hover:text-slate-100 transition-colors font-medium text-sm"
+              onClick={handleVerifyOtp}
+              disabled={otpLoading || otpValue.length !== 6}
+              className="w-full max-w-xs py-3 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold transition-colors"
             >
-              <Mail className="w-4 h-4" />
-              Enviar por Email
+              {otpLoading ? 'A verificar...' : 'Verificar Código'}
             </button>
+
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-slate-500">Não recebeu?</span>
+              {resendTimer > 0 ? (
+                <span className="text-slate-600">Reenviar em {resendTimer}s</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleResendOtp}
+                  className="text-orange-400 hover:text-orange-300 font-medium transition-colors"
+                >
+                  Reenviar código
+                </button>
+              )}
+            </div>
+
             <button
               type="button"
-              onClick={handleSubmitMessage}
-              disabled={submitting}
-              className="flex-1 flex items-center gap-2 px-5 py-3 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold text-sm transition-colors"
+              onClick={resetOtpFlow}
+              className="text-slate-500 hover:text-slate-300 text-sm transition-colors"
             >
-              <Send className="w-4 h-4" />
-              {submitting ? "A enviar…" : "Enviar Mensagem"}
+              ← Voltar ao formulário
             </button>
           </div>
+        )}
 
-          <p className="text-slate-600 text-xs text-center">
-            &quot;Enviar por Email&quot; abre o seu cliente de correio com o modelo do assunto seleccionado pré-preenchido.
-          </p>
-        </form>
+        {/* ── Success Step ──────────────────────────────── */}
+        {otpStep === 'success' && (
+          <div className="flex flex-col items-center text-center px-4 py-8 gap-5 flex-1 justify-center">
+            <div className="w-20 h-20 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
+              <CheckCircle className="w-9 h-9 text-emerald-400" />
+            </div>
+
+            <div>
+              <h3 className="text-slate-100 font-bold text-xl">Mensagem Enviada!</h3>
+              <p className="text-slate-400 text-sm mt-2 leading-relaxed max-w-xs">
+                A sua identidade foi verificada e a sua mensagem foi entregue ao apoio EVN.
+              </p>
+            </div>
+
+            <div className="bg-white/[0.04] border border-white/10 rounded-xl px-6 py-3">
+              <p className="text-slate-500 text-xs uppercase tracking-wider">Referência</p>
+              <p className="text-orange-400 font-bold font-mono mt-1">{otpRef}</p>
+            </div>
+
+            <p className="text-slate-500 text-xs">
+              Resposta em 24–48 horas úteis
+            </p>
+
+            <button
+              type="button"
+              onClick={resetOtpFlow}
+              className="w-full max-w-xs py-3 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 transition-colors text-sm"
+            >
+              Enviar outra mensagem
+            </button>
+          </div>
+        )}
+
       </div>
     </div>
 
