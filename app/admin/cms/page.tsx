@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Newspaper, FileText, Zap, LogOut, Plus, Pencil, Trash2,
   X, Upload, Loader2, CheckCircle2, AlertOctagon, Mail, MapPin,
-  Image as ImageIcon, AlertTriangle, Search, ExternalLink,
+  Image as ImageIcon, AlertTriangle, Search, ExternalLink, ShoppingCart,
 } from "lucide-react";
 import PdfLink from "@/components/pdf/PdfLink";
 import MediaCard from "@/components/admin/MediaCard";
@@ -21,7 +21,7 @@ import Pagination from "@/components/admin/Pagination";
 import { useDebounce } from "@/components/hooks/useDebounce";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Tab = "news" | "services" | "alerts" | "avarias" | "contact" | "media";
+type Tab = "news" | "services" | "alerts" | "avarias" | "contact" | "media" | "orders";
 type NewsStatus = "DRAFT" | "SCHEDULED" | "PUBLISHED" | "ARCHIVED";
 
 interface NewsArticle {
@@ -50,6 +50,12 @@ type MediaAssetRow = {
   id: number; filename: string; originalName: string; url: string;
   mimeType: string; sizeBytes: number; uploadedBy: string | null; createdAt: string;
 };
+
+interface Order {
+  id: string; orderRef: string; nome: string; email: string;
+  phone: string; items: Array<{meterNumber: string; amount: number}>;
+  total: number; status: string; paymentRef?: string; createdAt: string;
+}
 
 const LIMIT = 20;
 
@@ -203,7 +209,7 @@ function CMSDashboard() {
   const searchParams = useSearchParams();
   const [tab, setTab] = useState<Tab>(() => {
     const t = searchParams.get("tab");
-    const validTabs: Tab[] = ["news", "services", "alerts", "avarias", "contact", "media"];
+    const validTabs: Tab[] = ["news", "services", "alerts", "avarias", "contact", "media", "orders"];
     return validTabs.includes(t as Tab) ? (t as Tab) : "news";
   });
 
@@ -295,13 +301,23 @@ function CMSDashboard() {
   const [newsPickerOpen, setNewsPickerOpen] = useState(false);
   const [servicesPickerOpen, setServicesPickerOpen] = useState(false);
 
+  // ── Orders state ────────────────────────────────────────────────────────────
+  const [orders,        setOrders]        = useState<Order[]>([]);
+  const [ordersTotal,   setOrdersTotal]   = useState(0);
+  const [ordersPage,    setOrdersPage]    = useState(1);
+  const [ordersQ,       setOrdersQ]       = useState('');
+  const [ordersStatus,  setOrdersStatus]  = useState('');
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [viewingOrder,  setViewingOrder]  = useState<Order | null>(null);
+
   // ── Debounced search values ─────────────────────────────────────────────────
   const debouncedNewsQ = useDebounce(newsQ, 300);
   const debouncedServicesQ = useDebounce(servicesQ, 300);
   const debouncedAlertsQ = useDebounce(alertsQ, 300);
   const debouncedAvariasQ = useDebounce(avariasQ, 300);
   const debouncedMessagesQ = useDebounce(messagesQ, 300);
-  const debouncedMediaQ = useDebounce(mediaQ, 300);
+  const debouncedMediaQ  = useDebounce(mediaQ, 300);
+  const debouncedOrdersQ = useDebounce(ordersQ, 300);
 
   // ── Count fetchers ──────────────────────────────────────────────────────────
   const loadAvariasCount = useCallback(async () => {
@@ -441,12 +457,31 @@ function CMSDashboard() {
     }
   }, [debouncedMediaQ, mediaStatus, mediaSort, mediaPage]);
 
+  const fetchOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (debouncedOrdersQ) params.set('q', debouncedOrdersQ);
+      if (ordersStatus)     params.set('status', ordersStatus);
+      params.set('page', ordersPage.toString());
+      const res  = await fetch(`/api/admin/orders?${params}`);
+      const data = await res.json();
+      setOrders(data.orders ?? []);
+      setOrdersTotal(data.total ?? 0);
+    } catch {
+      toast.error("Não foi possível carregar encomendas.");
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [debouncedOrdersQ, ordersStatus, ordersPage]);
+
   useEffect(() => { loadNews(); }, [loadNews]);
   useEffect(() => { loadServices(); }, [loadServices]);
   useEffect(() => { loadAlerts(); }, [loadAlerts]);
   useEffect(() => { loadAvarias(); }, [loadAvarias]);
   useEffect(() => { loadMessages(); }, [loadMessages]);
   useEffect(() => { loadMedia(); }, [loadMedia]);
+  useEffect(() => { if (tab === 'orders') fetchOrders(); }, [tab, fetchOrders]);
 
   // ── Keyboard shortcuts ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -456,6 +491,7 @@ function CMSDashboard() {
         setViewingAlert(null);
         setViewingAvaria(null);
         setOpenMessage(null);
+        setViewingOrder(null);
       }
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
@@ -474,6 +510,7 @@ function CMSDashboard() {
   useEffect(() => { setAvariasPage(1); }, [debouncedAvariasQ, avariasStatus, avariasSort]);
   useEffect(() => { setMessagesPage(1); }, [debouncedMessagesQ, messagesStatus, messagesSort]);
   useEffect(() => { setMediaPage(1); }, [debouncedMediaQ, mediaStatus, mediaSort]);
+  useEffect(() => { setOrdersPage(1); }, [debouncedOrdersQ, ordersStatus]);
 
   // ── News CRUD ───────────────────────────────────────────────────────────────
   const validateNewsForm = (form: typeof newsForm): Record<string, string> => {
@@ -742,6 +779,7 @@ function CMSDashboard() {
     { key: "avarias" as Tab, label: "Avarias", icon: AlertOctagon, badge: pendingAvariasCount },
     { key: "contact" as Tab, label: "Mensagens", icon: Mail, badge: unreadMessagesCount },
     { key: "media" as Tab, label: "Media", icon: ImageIcon, badge: 0 },
+    { key: "orders" as Tab, label: "Encomendas", icon: ShoppingCart, badge: 0 },
   ];
 
   return (
@@ -1338,6 +1376,143 @@ function CMSDashboard() {
           </div>
         </GlassPanel>
       )}
+
+      {/* ── ORDERS TAB ──────────────────────────────────────────────────────── */}
+      {tab === "orders" && (
+        <GlassPanel>
+          <div className="p-6 space-y-4">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-slate-100">Encomendas</h2>
+                <p className="text-slate-500 text-sm mt-0.5">{ordersTotal} orders total</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input
+                  value={ordersQ}
+                  onChange={e => { setOrdersQ(e.target.value); setOrdersPage(1); }}
+                  placeholder="Search by ref, email, name, phone..."
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border-2 border-white/10 focus:border-orange-500 outline-none text-slate-100 text-sm"
+                  style={{ background: "rgba(255,255,255,0.04)" }}
+                />
+              </div>
+              <select
+                value={ordersStatus}
+                onChange={e => { setOrdersStatus(e.target.value); setOrdersPage(1); }}
+                className="px-3 py-2.5 rounded-xl border-2 border-white/10 focus:border-orange-500 outline-none text-slate-100 text-sm cursor-pointer"
+                style={{ background: "rgba(255,255,255,0.04)" }}
+              >
+                <option value="">All Status</option>
+                <option value="PENDING">Pending</option>
+                <option value="PAID">Paid</option>
+                <option value="FAILED">Failed</option>
+                <option value="CANCELLED">Cancelled</option>
+              </select>
+            </div>
+
+            <div className="rounded-2xl border border-white/[0.08] overflow-hidden">
+              {ordersLoading ? (
+                <div className="p-8 text-center text-slate-500">Loading orders...</div>
+              ) : orders.length === 0 ? (
+                <div className="p-8 text-center text-slate-500">No orders found</div>
+              ) : (
+                orders.map(order => (
+                  <div key={order.id}
+                    onClick={() => setViewingOrder(order)}
+                    className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 border-b border-white/[0.06] hover:bg-white/[0.02] cursor-pointer transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1">
+                        <span className="text-orange-400 font-mono font-bold text-sm">{order.orderRef}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-bold uppercase ${
+                          order.status === 'PAID'      ? 'bg-emerald-500/20 text-emerald-400' :
+                          order.status === 'PENDING'   ? 'bg-amber-500/20 text-amber-400' :
+                          order.status === 'FAILED'    ? 'bg-red-500/20 text-red-400' :
+                          'bg-slate-500/20 text-slate-400'
+                        }`}>{order.status}</span>
+                      </div>
+                      <p className="text-slate-100 text-sm font-medium">{order.nome}</p>
+                      <p className="text-slate-500 text-xs truncate">{order.email} · {order.phone}</p>
+                      <p className="text-slate-600 text-xs mt-0.5">
+                        {Array.isArray(order.items) ? order.items.length : 0} meter(s) ·{' '}
+                        {new Date(order.createdAt).toLocaleDateString('pt-PT')}
+                      </p>
+                    </div>
+                    <div className="shrink-0">
+                      <span className="text-orange-400 font-black text-lg">{order.total} MZN</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {ordersTotal > 20 && (
+              <Pagination page={ordersPage} total={ordersTotal} limit={20} onPageChange={setOrdersPage} />
+            )}
+          </div>
+        </GlassPanel>
+      )}
+
+      {/* ── ORDER DETAIL MODAL ──────────────────────────────────────────────── */}
+      <Modal open={!!viewingOrder} onClose={() => setViewingOrder(null)} title={viewingOrder ? `Order — ${viewingOrder.orderRef}` : "Order"}>
+        {viewingOrder && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              {([
+                ['Customer',    viewingOrder.nome],
+                ['Email',       viewingOrder.email],
+                ['Phone',       viewingOrder.phone],
+                ['Total',       `${viewingOrder.total} MZN`],
+                ['Status',      viewingOrder.status],
+                ['Payment Ref', viewingOrder.paymentRef ?? '—'],
+                ['Created',     new Date(viewingOrder.createdAt).toLocaleString('pt-PT')],
+              ] as [string, string][]).map(([label, val]) => (
+                <div key={label} className="space-y-1">
+                  <p className="text-slate-500 text-xs uppercase tracking-wider">{label}</p>
+                  <p className={`text-sm font-medium ${label === 'Status' ?
+                    viewingOrder.status === 'PAID'    ? 'text-emerald-400' :
+                    viewingOrder.status === 'PENDING' ? 'text-amber-400'   : 'text-red-400'
+                    : 'text-slate-200'}`}>{val}</p>
+                </div>
+              ))}
+            </div>
+            <div>
+              <p className="text-slate-500 text-xs uppercase tracking-wider mb-2">Meter Items</p>
+              {Array.isArray(viewingOrder.items) && viewingOrder.items.map((item, i) => (
+                <div key={i} className="flex justify-between items-center p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] mb-2">
+                  <span className="text-slate-300 font-mono text-sm">⚡ {item.meterNumber}</span>
+                  <span className="text-orange-400 font-bold">{item.amount} MZN</span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <p className="text-slate-500 text-xs uppercase tracking-wider">Update Status</p>
+              <div className="flex gap-2 flex-wrap">
+                {(['PENDING','PROCESSING','PAID','FAILED','CANCELLED'] as const).map(s => (
+                  <button key={s} type="button"
+                    onClick={async () => {
+                      await fetch(`/api/admin/orders/${viewingOrder.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: s })
+                      });
+                      setViewingOrder(prev => prev ? { ...prev, status: s } : null);
+                      fetchOrders();
+                      toast.success(`Status updated to ${s}`);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border ${
+                      viewingOrder.status === s
+                        ? 'bg-orange-500 border-orange-500 text-white'
+                        : 'border-white/10 text-slate-400 hover:border-orange-500/50'
+                    }`}>{s}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* ── ARTICLE DETAIL MODAL ────────────────────────────────────────────── */}
       <Modal
