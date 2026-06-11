@@ -476,17 +476,19 @@ export function ContactModal() {
   };
 
   const startResendTimer = () => {
-    setResendTimer(60);
+    setResendTimer(60)
+    if (timerRef.current) clearInterval(timerRef.current)
     timerRef.current = setInterval(() => {
       setResendTimer(prev => {
         if (prev <= 1) {
-          clearInterval(timerRef.current!);
-          return 0;
+          clearInterval(timerRef.current!)
+          timerRef.current = null
+          return 0
         }
-        return prev - 1;
-      });
-    }, 1000);
-  };
+        return prev - 1
+      })
+    }, 1000)
+  }
 
   const handleSendOtp = async () => {
     setOtpLoading(true);
@@ -794,17 +796,23 @@ export function ContactModal() {
               {otpLoading ? 'A verificar...' : 'Verificar Código'}
             </button>
 
-            <div className="flex items-center gap-3 text-sm">
-              <span className="text-slate-500">Não recebeu?</span>
+            <div className="flex items-center gap-2 text-sm">
+              <span className="text-slate-500">
+                Didn&apos;t receive it?
+              </span>
               {resendTimer > 0 ? (
-                <span className="text-slate-600">Reenviar em {resendTimer}s</span>
+                <span className="text-slate-600">
+                  Resend in {resendTimer}s
+                </span>
               ) : (
                 <button
                   type="button"
                   onClick={handleResendOtp}
-                  className="text-orange-400 hover:text-orange-300 font-medium transition-colors"
+                  className="text-orange-400 hover:text-orange-300
+                    font-semibold transition-colors underline
+                    underline-offset-2 cursor-pointer"
                 >
-                  Reenviar código
+                  Resend code
                 </button>
               )}
             </div>
