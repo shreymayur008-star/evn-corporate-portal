@@ -5,6 +5,7 @@ import ParallaxBackground from "../components/canvas/ParallaxBackground";
 import GlobalExperience from "../components/ui/GlobalExperience";
 import AdminFloatingButton from "../components/ui/AdminFloatingButton";
 import { auth } from "@/lib/auth";
+import VisitorTracker from "@/components/ui/VisitorTracker";
 
 export const metadata: Metadata = {
   title: "EVN - Eletricidade Vantara Nacional",
@@ -18,6 +19,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="pt-MZ">
       <body className="bg-transparent text-slate-200 antialiased overflow-x-hidden">
+        <VisitorTracker />
         <GlobalExperience />
         <ParallaxBackground />
         {children}
