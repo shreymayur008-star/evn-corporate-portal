@@ -121,3 +121,25 @@ model OtpVerification {
   used      Boolean  @default(false)
   createdAt DateTime @default(now())
 }
+
+model Order {
+  id         String      @id @default(cuid())
+  orderRef   String      @unique
+  nome       String
+  email      String
+  phone      String
+  items      Json
+  total      Float
+  status     OrderStatus @default(PENDING)
+  paymentRef String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
+}
