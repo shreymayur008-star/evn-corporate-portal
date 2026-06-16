@@ -40,6 +40,12 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
   const [thirdPartyRef,   setThirdPartyRef]   = useState('')
   const [waitingTimer,    setWaitingTimer]    = useState(0)
 
+  // MPesa PIN confirm state
+  const [pinConfirmed,   setPinConfirmed]   = useState(false)
+  const [confirmLoading, setConfirmLoading] = useState(false)
+  const [showPinButton,  setShowPinButton]  = useState(false)
+  const pinTimerRef = useRef<NodeJS.Timeout | null>(null)
+
   const sseRef      = useRef<EventSource | null>(null)
   const waitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -173,6 +179,12 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
       startWaitingTimer()
       toast.success('Payment request sent! Check your phone for the M-Pesa prompt.')
 
+      // Show "I've entered my PIN" button after 20 seconds
+      if (pinTimerRef.current) clearTimeout(pinTimerRef.current)
+      pinTimerRef.current = setTimeout(() => {
+        setShowPinButton(true)
+      }, 20_000)
+
     } catch {
       setMpesaError('Connection error — please check your internet and retry')
     } finally {
@@ -201,15 +213,50 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
     }
   }
 
+  const handlePinConfirm = async () => {
+    if (confirmLoading || pinConfirmed) return
+    setConfirmLoading(true)
+    try {
+      const res  = await fetch('/api/payment/mpesa-mz/manual-confirm', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ orderRef }),
+      })
+      const data = await res.json()
+
+      if (res.ok && data.success) {
+        setPinConfirmed(true)
+        setTransactionId(data.transactionId ?? '')
+        setTimeout(() => {
+          setStep('confirmation')
+        }, 1500)
+        toast.success('Payment confirmed!')
+      } else {
+        toast.error(data.error ?? 'Confirmation failed — try again')
+      }
+    } catch {
+      toast.error('Connection error — please try again')
+    } finally {
+      setConfirmLoading(false)
+    }
+  }
+
   const resetAll = () => {
     setStep('cart'); setCart([]); setMeter(''); setSelectedAmt(0)
     setNome(''); setEmail(''); setPhone(''); setOrderRef('')
     setTransactionId(''); setOrderStatus('PENDING'); setPaymentLoading(false)
     setMpesaPhone(''); setMpesaPhoneError(''); setMpesaError('')
     setThirdPartyRef(''); setWaitingTimer(0)
+    setPinConfirmed(false)
+    setShowPinButton(false)
+    setConfirmLoading(false)
     if (waitTimerRef.current) {
       clearInterval(waitTimerRef.current)
       waitTimerRef.current = null
+    }
+    if (pinTimerRef.current) {
+      clearTimeout(pinTimerRef.current)
+      pinTimerRef.current = null
     }
     if (sseRef.current) { sseRef.current.close(); sseRef.current = null }
   }
@@ -218,6 +265,7 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
     return () => {
       if (sseRef.current)      sseRef.current.close()
       if (waitTimerRef.current) clearInterval(waitTimerRef.current)
+      if (pinTimerRef.current)  clearTimeout(pinTimerRef.current)
     }
   }, [])
 
@@ -493,8 +541,10 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
               {/* Phase B: Waiting screen */}
               {thirdPartyRef && orderStatus !== 'PAID' && (
                 <div className="space-y-4">
+                  {/* Phone icon and instruction */}
                   <div className="text-center py-4 space-y-3">
-                    <div className="w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto">
+                    <div className="w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/30
+                                    flex items-center justify-center mx-auto">
                       <div className="w-4 h-4 rounded-full bg-amber-400 animate-pulse" />
                     </div>
                     <div>
@@ -502,10 +552,10 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
                       <p className="text-slate-400 text-sm mt-1">
                         Vodacom M-Pesa popup sent to
                       </p>
-                      <p className="text-orange-400 font-mono font-bold mt-0.5">
+                      <p className="text-orange-400 font-mono font-bold text-base mt-0.5">
                         +{mpesaPhone.replace(/\D/g, '').startsWith('258')
-                          ? mpesaPhone.replace(/\D/g, '')
-                          : '258' + mpesaPhone.replace(/\D/g, '')}
+                            ? mpesaPhone.replace(/\D/g, '')
+                            : '258' + mpesaPhone.replace(/\D/g, '')}
                       </p>
                     </div>
                     <p className="text-slate-500 text-sm">
@@ -513,6 +563,7 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
                     </p>
                   </div>
 
+                  {/* Live SSE status */}
                   <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
                     orderStatus === 'PAID'
                       ? 'border-emerald-500/30 bg-emerald-500/10'
@@ -526,29 +577,62 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
                       'bg-amber-400 animate-pulse'
                     }`} />
                     <span className={`text-sm font-medium ${
-                      orderStatus === 'PAID'   ? 'text-emerald-400' :
-                      orderStatus === 'FAILED' ? 'text-red-400' :
+                      orderStatus === 'PAID'        ? 'text-emerald-400' :
+                      orderStatus === 'FAILED'      ? 'text-red-400' :
                       'text-amber-400'
                     }`}>
-                      {orderStatus === 'PAID'       ? '✅ Payment confirmed by Vodacom MZ!' :
-                       orderStatus === 'FAILED'     ? '❌ Payment failed' :
-                       orderStatus === 'PROCESSING' ? 'Waiting for your PIN...' :
-                       'Connecting to Vodacom MZ...'}
+                      {orderStatus === 'PAID'
+                        ? '✅ Payment confirmed by Vodacom MZ!'
+                        : orderStatus === 'FAILED'
+                        ? '❌ Payment failed'
+                        : 'Connecting to Vodacom MZ...'}
                     </span>
-                    <span className="text-slate-600 text-xs ml-auto font-mono">LIVE</span>
+                    <span className="text-slate-600 text-xs ml-auto">LIVE</span>
                   </div>
 
+                  {/* Countdown */}
                   {waitingTimer > 0 && orderStatus !== 'PAID' && (
                     <p className="text-center text-slate-600 text-sm">
-                      Request expires in <span className="text-slate-400 font-mono font-bold">{waitingTimer}s</span>
+                      Request expires in{' '}
+                      <span className="text-slate-400 font-mono font-bold">{waitingTimer}s</span>
                     </p>
                   )}
 
+                  {/* PIN Confirmation Button — appears after 20 seconds */}
+                  {showPinButton && orderStatus !== 'PAID' && !pinConfirmed && (
+                    <div className="rounded-xl border border-emerald-500/30 p-4 space-y-3"
+                         style={{ background: 'rgba(34,197,94,0.05)' }}>
+                      <p className="text-slate-300 text-sm text-center font-medium">
+                        Already entered your PIN on the popup?
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handlePinConfirm}
+                        disabled={confirmLoading}
+                        className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700
+                                   disabled:opacity-50 text-white font-bold transition-colors
+                                   flex items-center justify-center gap-2"
+                      >
+                        {confirmLoading ? (
+                          <><Loader2 className="w-4 h-4 animate-spin" />Confirming...</>
+                        ) : (
+                          <>&#x2705; I&apos;ve Entered My PIN — Confirm Payment</>
+                        )}
+                      </button>
+                      <p className="text-slate-600 text-xs text-center">
+                        Click after entering your PIN in the Vodacom M-Pesa popup
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
                   <div className="flex gap-3">
                     <button
                       type="button"
                       onClick={handleCheckStatus}
-                      className="flex-1 py-3 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors text-sm font-medium"
+                      className="flex-1 py-3 rounded-xl border border-white/10 text-slate-400
+                                 hover:bg-white/5 hover:text-slate-200 transition-colors
+                                 text-sm font-medium"
                     >
                       Check Status
                     </button>
@@ -558,8 +642,13 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
                         setThirdPartyRef('')
                         setMpesaPhone('')
                         setMpesaError('')
+                        setShowPinButton(false)
+                        setPinConfirmed(false)
+                        if (pinTimerRef.current) clearTimeout(pinTimerRef.current)
                       }}
-                      className="flex-1 py-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 hover:bg-orange-500/20 transition-colors text-sm font-medium"
+                      className="flex-1 py-3 rounded-xl bg-orange-500/10 border border-orange-500/20
+                                 text-orange-400 hover:bg-orange-500/20 transition-colors
+                                 text-sm font-medium"
                     >
                       Resend Request
                     </button>
