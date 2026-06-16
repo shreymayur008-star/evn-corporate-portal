@@ -7,6 +7,8 @@ import {
   queryTransactionStatus,
   normaliseMozPhone,
   getMpesaMessage,
+  generateTxRef,
+  generateThirdPartyRef,
 } from '@/lib/mpesa-mz'
 
 export const dynamic = 'force-dynamic'
@@ -19,7 +21,6 @@ const schema = z.object({
   orderRef: z.string().startsWith('EVN-ORD-', 'Invalid order reference'),
 })
 
-// ── Email builder ─────────────────────────────────────────────
 function buildReceiptEmail(
   nome:  string,
   txId:  string,
@@ -44,7 +45,7 @@ function buildReceiptEmail(
         <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
           <tr><td style="padding:7px 0;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Order Reference</td>
               <td style="padding:7px 0;text-align:right;font-family:monospace;font-weight:bold;">${ref}</td></tr>
-          <tr><td style="padding:7px 0;color:#64748b;font-size:13px;">Amount Paid</td>
+          <tr><td style="padding:7px 0;color:#64748b;font-size:13px;">Total Paid</td>
               <td style="padding:7px 0;text-align:right;font-weight:bold;color:#E85D04;font-size:18px;">${total} MZN</td></tr>
         </table>
         <div style="background:#f8fafc;border-radius:8px;padding:14px;margin-bottom:18px;">
@@ -65,47 +66,39 @@ function buildReceiptEmail(
   </body></html>`
 }
 
-// ── Background polling ────────────────────────────────────────
-// No callback URL needed. Polls Vodacom every 10s after C2B.
-// When customer enters PIN → Vodacom confirms → DB→PAID→email→SSE
 async function pollUntilPaid(
-  orderRef:      string,
-  thirdPartyRef: string,
-  email:         string,
-  nome:          string,
-  total:         number,
-  items:         Array<{ meterNumber: string; amount: number }>
+  orderRef: string,
+  tpRef:    string,
+  email:    string,
+  nome:     string,
+  total:    number,
+  items:    Array<{ meterNumber: string; amount: number }>
 ): Promise<void> {
-  const MAX     = 12  // 12 × 10s = 120 seconds (2 minutes)
-  const WAIT_MS = 10_000
+  const MAX  = 12
+  const WAIT = 10_000
 
   for (let i = 1; i <= MAX; i++) {
-    await new Promise(r => setTimeout(r, WAIT_MS))
-
+    await new Promise(r => setTimeout(r, WAIT))
     try {
-      const result = await queryTransactionStatus({
-        queryReference: orderRef,
-        thirdPartyRef,
+      const q    = await queryTransactionStatus({
+        queryReference: tpRef,
+        thirdPartyRef:  tpRef,
       })
-
-      const code = result.output_ResponseCode
-      console.log(`[mpesa-poll] attempt ${i}/${MAX} — ${orderRef} — ${code}`)
+      const code = q.output_ResponseCode
+      console.log(`[mpesa-poll] ${i}/${MAX} ${orderRef} → ${code}`)
 
       if (code === 'INS-0') {
-        const txId = result.output_TransactionID ?? ''
-
+        const txId = q.output_TransactionID ?? ''
         await prisma.order.update({
           where: { orderRef },
           data:  { status: 'PAID', paymentRef: txId, updatedAt: new Date() },
         })
-
         await resend.emails.send({
           from:    'EVN Portal <onboarding@resend.dev>',
           to:      email,
           subject: `EVN — M-Pesa Payment Confirmed: ${txId}`,
           html:    buildReceiptEmail(nome, txId, orderRef, total, items),
         })
-
         console.log('[mpesa-poll] ✅ PAID', orderRef, txId)
         return
       }
@@ -115,29 +108,21 @@ async function pollUntilPaid(
           where: { orderRef },
           data:  { status: 'FAILED', updatedAt: new Date() },
         })
-        console.log('[mpesa-poll] ❌ FAILED', orderRef, code)
         return
       }
-
-      // INS-9, INS-13, others = still pending, continue polling
-
-    } catch (err) {
-      console.error(`[mpesa-poll] attempt ${i} error:`, err)
+    } catch (e) {
+      console.error(`[mpesa-poll] attempt ${i}:`, e)
     }
   }
 
-  // Timed out after 2 minutes
-  console.warn('[mpesa-poll] timeout after 2min', orderRef)
   await prisma.order.update({
     where: { orderRef },
     data:  { status: 'FAILED', updatedAt: new Date() },
   }).catch(() => {})
 }
 
-// ── Main handler ──────────────────────────────────────────────
 export async function POST(req: NextRequest) {
   let parsedOrderRef = ''
-
   try {
     const body   = await req.json()
     const parsed = schema.safeParse(body)
@@ -163,45 +148,37 @@ export async function POST(req: NextRequest) {
     }
 
     const order = await prisma.order.findUnique({ where: { orderRef } })
-    if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-    }
-    if (order.status === 'PAID') {
-      return NextResponse.json(
-        { error: 'This order has already been paid' },
-        { status: 400 }
-      )
-    }
+    if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+    if (order.status === 'PAID') return NextResponse.json(
+      { error: 'This order has already been paid' }, { status: 400 }
+    )
 
-    const thirdPartyRef = `EVN-${Date.now()}`
+    // Generate refs WITHOUT hyphens — Vodacom sandbox requires this format
+    const txRef = generateTxRef()           // T1718523847
+    const tpRef = generateThirdPartyRef()   // ZXVM9H
 
     await prisma.order.update({
       where: { orderRef },
-      data:  { status: 'PROCESSING' },
+      data:  { status: 'PROCESSING', paymentRef: tpRef },
     })
 
-    // ── Real Vodacom MZ C2B API call ──────────────────────────
+    // ── Call Vodacom MZ via mpesa-node-api package ────────────
     const result = await initiateC2B({
       amount,
-      msisdn:         normalisedPhone,
-      transactionRef: orderRef,
-      thirdPartyRef,
+      msisdn: normalisedPhone,
+      txRef,
+      tpRef,
     })
 
-    console.log('[mpesa-mz/initiate]', orderRef, result.responseCode)
+    console.log('[mpesa-mz/initiate]', orderRef, result.responseCode, txRef, tpRef)
 
     if (result.success) {
-      await prisma.order.update({
-        where: { orderRef },
-        data:  { paymentRef: result.conversationId ?? result.transactionId ?? '' },
-      })
-
+      // INS-0 — popup dispatched to customer's phone
       const items = order.items as Array<{ meterNumber: string; amount: number }>
 
-      // Fire-and-forget background polling
       void pollUntilPaid(
         orderRef,
-        thirdPartyRef,
+        tpRef,
         order.email,
         order.nome,
         order.total,
@@ -212,36 +189,31 @@ export async function POST(req: NextRequest) {
         success:        true,
         transactionId:  result.transactionId,
         conversationId: result.conversationId,
-        thirdPartyRef,
+        thirdPartyRef:  tpRef,
+        txRef,
         normalisedPhone,
         message: 'Payment request sent — check your phone for the M-Pesa prompt',
       })
     }
 
-    // ── Vodacom returned a non-success code ───────────────────
     await prisma.order.update({
       where: { orderRef },
       data:  { status: 'PENDING' },
     })
 
     return NextResponse.json(
-      {
-        error:        getMpesaMessage(result.responseCode),
-        responseCode: result.responseCode,
-      },
+      { error: result.message, responseCode: result.responseCode },
       { status: 400 }
     )
 
   } catch (err) {
-    console.error('[mpesa-mz/initiate] error:', err)
-
+    console.error('[mpesa-mz/initiate]', err)
     if (parsedOrderRef) {
       await prisma.order.update({
         where: { orderRef: parsedOrderRef },
         data:  { status: 'PENDING' },
       }).catch(() => {})
     }
-
     return NextResponse.json(
       { error: 'Payment initiation failed — please try again' },
       { status: 500 }
