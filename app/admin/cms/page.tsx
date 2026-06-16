@@ -457,6 +457,36 @@ function CMSDashboard() {
     }
   }, [debouncedMediaQ, mediaStatus, mediaSort, mediaPage]);
 
+  const handleRefund = async (order: Order) => {
+    if (!order.paymentRef) {
+      toast.error('No transaction ID found — cannot refund')
+      return
+    }
+    if (!confirm(`Refund ${order.total} MZN to customer via M-Pesa? This cannot be undone.`)) {
+      return
+    }
+    try {
+      const res  = await fetch('/api/payment/mpesa-mz/reversal', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          orderId:       order.id,
+          transactionId: order.paymentRef,
+          amount:        order.total,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        toast.success('Refund processed — money returned to customer MPesa wallet')
+        fetchOrders()
+      } else {
+        toast.error(data.error ?? 'Refund failed')
+      }
+    } catch {
+      toast.error('Refund request failed — please retry')
+    }
+  }
+
   const fetchOrders = useCallback(async () => {
     setOrdersLoading(true);
     try {
@@ -1510,6 +1540,26 @@ function CMSDashboard() {
                 ))}
               </div>
             </div>
+
+            {/* Refund button — only for PAID orders with a payment reference */}
+            {viewingOrder.status === 'PAID' && viewingOrder.paymentRef && (
+              <div className="pt-2 border-t border-white/[0.08]">
+                <p className="text-slate-500 text-xs uppercase tracking-wider mb-2">Refund</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleRefund(viewingOrder)
+                    setViewingOrder(null)
+                  }}
+                  className="w-full py-2.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-colors text-sm font-medium"
+                >
+                  ↩ Refund {viewingOrder.total} MZN via M-Pesa
+                </button>
+                <p className="text-slate-600 text-xs mt-1.5 text-center">
+                  Calls Vodacom MZ reversal API — money returned to customer wallet
+                </p>
+              </div>
+            )}
           </div>
         )}
       </Modal>

@@ -31,7 +31,17 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
   const [transactionId,  setTransactionId]  = useState('')
   const [orderStatus,    setOrderStatus]    = useState<string>('PENDING')
   const [paymentLoading, setPaymentLoading] = useState(false)
-  const sseRef = useRef<EventSource | null>(null)
+
+  // MPesa MZ state
+  const [mpesaPhone,      setMpesaPhone]      = useState('')
+  const [mpesaPhoneError, setMpesaPhoneError] = useState('')
+  const [mpesaLoading,    setMpesaLoading]    = useState(false)
+  const [mpesaError,      setMpesaError]      = useState('')
+  const [thirdPartyRef,   setThirdPartyRef]   = useState('')
+  const [waitingTimer,    setWaitingTimer]    = useState(0)
+
+  const sseRef      = useRef<EventSource | null>(null)
+  const waitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const total = cart.reduce((s, i) => s + i.amount, 0)
 
@@ -111,38 +121,104 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
     sseRef.current = es
   }
 
+  const startWaitingTimer = () => {
+    setWaitingTimer(60)
+    if (waitTimerRef.current) clearInterval(waitTimerRef.current)
+    waitTimerRef.current = setInterval(() => {
+      setWaitingTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(waitTimerRef.current!)
+          waitTimerRef.current = null
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
   const handleMpesaPayment = async () => {
-    setPaymentLoading(true)
+    if (!mpesaPhone.trim()) {
+      setMpesaPhoneError('Please enter your M-Pesa phone number')
+      return
+    }
+    const digits = mpesaPhone.replace(/\D/g, '')
+    if (digits.length < 9) {
+      setMpesaPhoneError('Phone number too short — minimum 9 digits')
+      return
+    }
+
+    setMpesaLoading(true)
+    setMpesaError('')
+    setMpesaPhoneError('')
+
     try {
-      const res  = await fetch('/api/payment/mpesa', {
+      const res  = await fetch('/api/payment/mpesa-mz/initiate', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          phone,
-          amount: total,
-          orderRef,
-          meterNumbers: cart.map(i => i.meterNumber),
+          phone:    mpesaPhone,
+          amount:   total,
+          orderRef: orderRef,
         }),
       })
       const data = await res.json()
-      if (!res.ok) { toast.error(data.error || 'Payment failed'); return }
-      setTransactionId(data.transactionId)
-    } catch {
-      toast.error('Payment error. Please try again.')
-    } finally {
+
+      if (!res.ok) {
+        setMpesaError(data.error ?? 'Payment request failed')
+        return
+      }
+
+      setThirdPartyRef(data.thirdPartyRef ?? '')
       setPaymentLoading(false)
+      startWaitingTimer()
+      toast.success('Payment request sent! Check your phone for the M-Pesa prompt.')
+
+    } catch {
+      setMpesaError('Connection error — please check your internet and retry')
+    } finally {
+      setMpesaLoading(false)
+    }
+  }
+
+  const handleCheckStatus = async () => {
+    if (!orderRef || !thirdPartyRef) return
+    try {
+      const res  = await fetch('/api/payment/mpesa-mz/query', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ orderRef, thirdPartyRef }),
+      })
+      const data = await res.json()
+      if (data.status === 'PAID') {
+        setTransactionId(data.transactionId ?? '')
+        setStep('confirmation')
+        toast.success('Payment confirmed!')
+      } else {
+        toast(data.message ?? 'Payment not yet confirmed — please wait')
+      }
+    } catch {
+      toast.error('Could not check status — please retry')
     }
   }
 
   const resetAll = () => {
     setStep('cart'); setCart([]); setMeter(''); setSelectedAmt(0)
     setNome(''); setEmail(''); setPhone(''); setOrderRef('')
-    setTransactionId(''); setOrderStatus('PENDING')
+    setTransactionId(''); setOrderStatus('PENDING'); setPaymentLoading(false)
+    setMpesaPhone(''); setMpesaPhoneError(''); setMpesaError('')
+    setThirdPartyRef(''); setWaitingTimer(0)
+    if (waitTimerRef.current) {
+      clearInterval(waitTimerRef.current)
+      waitTimerRef.current = null
+    }
     if (sseRef.current) { sseRef.current.close(); sseRef.current = null }
   }
 
   useEffect(() => {
-    return () => { if (sseRef.current) sseRef.current.close() }
+    return () => {
+      if (sseRef.current)      sseRef.current.close()
+      if (waitTimerRef.current) clearInterval(waitTimerRef.current)
+    }
   }, [])
 
   const STEPS: Step[] = ['cart', 'checkout', 'payment', 'confirmation']
@@ -282,7 +358,7 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
                 {([
                   { label:'Full Name',     val:nome,  set:setNome,  type:'text',  ph:'Your full name' },
                   { label:'Email Address', val:email, set:setEmail, type:'email', ph:'your@email.com' },
-                  { label:'MPesa Phone',   val:phone, set:setPhone, type:'tel',   ph:'+258 84 000 0000' },
+                  { label:'Contact Phone', val:phone, set:setPhone, type:'tel',   ph:'+258 84 000 0000' },
                 ] as const).map(({ label, val, set, type, ph }) => (
                   <div key={label} className="space-y-1.5">
                     <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">{label}</label>
@@ -325,57 +401,171 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
 
           {/* ── STEP 3: PAYMENT ── */}
           {step === 'payment' && (
-            <motion.div key="payment" initial={{opacity:0,x:20}} animate={{opacity:1,x:0}} exit={{opacity:0,x:-20}} className="space-y-4 mt-2">
+            <motion.div
+              key="payment"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="space-y-4 mt-2"
+            >
+              {/* Order reference */}
               <div className="text-center py-2">
-                <p className="text-slate-400 text-sm">Order placed successfully</p>
-                <p className="text-orange-400 font-mono font-bold text-lg mt-1">{orderRef}</p>
+                <p className="text-slate-400 text-sm">Order confirmed</p>
+                <p className="text-orange-400 font-mono font-bold text-base mt-1">{orderRef}</p>
               </div>
 
-              <div className="rounded-xl border-2 border-orange-500/30 p-4" style={{ background: 'rgba(232,93,4,0.05)' }}>
-                <p className="text-orange-400 font-bold text-sm mb-3">📱 M-Pesa Payment Instructions</p>
-                <div className="space-y-2 text-sm text-slate-300">
-                  <p>On your phone, dial:</p>
-                  <div className="bg-black/40 rounded-lg p-3 font-mono text-center text-orange-400 font-bold text-lg tracking-widest">
-                    *150*1455*{total}*{cart[0]?.meterNumber ?? 'METER'}#
+              {/* Phase A: Phone input */}
+              {!thirdPartyRef && (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                      M-Pesa Phone Number
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-sm font-mono">+258</span>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        value={mpesaPhone}
+                        onChange={e => {
+                          setMpesaPhone(e.target.value)
+                          setMpesaPhoneError('')
+                          setMpesaError('')
+                        }}
+                        placeholder="84 XXX XXXX"
+                        className={`w-full pl-14 pr-4 py-3 rounded-xl border-2 outline-none text-slate-100 placeholder:text-slate-600 font-mono text-base transition-colors ${
+                          mpesaPhoneError
+                            ? 'border-red-500'
+                            : 'border-white/10 focus:border-orange-500'
+                        }`}
+                        style={{ background: 'rgba(255,255,255,0.05)' }}
+                      />
+                    </div>
+                    {mpesaPhoneError && (
+                      <p className="text-red-400 text-xs">{mpesaPhoneError}</p>
+                    )}
+                    <p className="text-slate-600 text-xs">
+                      Vodacom (84/85) · Movitel (86) · Tmcel (82/83/87)
+                    </p>
                   </div>
-                  <p className="text-slate-500 text-xs text-center">or pay via M-Pesa app → EVN → Credelec</p>
+
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-orange-500/10 border border-orange-500/20">
+                    <span className="text-slate-300 text-sm">Total to pay</span>
+                    <span className="text-orange-400 font-black text-2xl">{total} MZN</span>
+                  </div>
+
+                  {mpesaError && (
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20">
+                      <p className="text-red-400 text-sm">{mpesaError}</p>
+                    </div>
+                  )}
+
+                  <div className="rounded-xl border border-white/[0.08] p-3 space-y-1.5" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                    <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Or pay manually via USSD</p>
+                    <p className="text-orange-400 font-mono font-bold text-base tracking-widest">
+                      *150*1455*{total}*{cart[0]?.meterNumber ?? 'METER'}#
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleMpesaPayment}
+                    disabled={mpesaLoading}
+                    className="w-full py-3.5 rounded-xl bg-orange-500 hover:bg-orange-600 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-base transition-colors flex items-center justify-center gap-2"
+                  >
+                    {mpesaLoading ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" />Sending to Vodacom MZ...</>
+                    ) : (
+                      <>Send M-Pesa Payment Request</>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setStep('checkout')}
+                    className="w-full py-2.5 text-slate-500 hover:text-slate-300 text-sm transition-colors"
+                  >
+                    ← Back to checkout
+                  </button>
                 </div>
-              </div>
+              )}
 
-              <div className="space-y-2 text-sm">
-                {([
-                  ['Phone Number', phone],
-                  ['Amount',       `${total} MZN`],
-                  ['Order Ref',    orderRef],
-                ] as const).map(([label, val]) => (
-                  <div key={label} className="flex justify-between py-2 border-b border-white/[0.06]">
-                    <span className="text-slate-500">{label}</span>
-                    <span className="text-slate-200 font-mono font-bold">{val}</span>
+              {/* Phase B: Waiting screen */}
+              {thirdPartyRef && orderStatus !== 'PAID' && (
+                <div className="space-y-4">
+                  <div className="text-center py-4 space-y-3">
+                    <div className="w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center mx-auto">
+                      <div className="w-4 h-4 rounded-full bg-amber-400 animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-slate-100 font-bold text-base">Check your phone</p>
+                      <p className="text-slate-400 text-sm mt-1">
+                        Vodacom M-Pesa popup sent to
+                      </p>
+                      <p className="text-orange-400 font-mono font-bold mt-0.5">
+                        +{mpesaPhone.replace(/\D/g, '').startsWith('258')
+                          ? mpesaPhone.replace(/\D/g, '')
+                          : '258' + mpesaPhone.replace(/\D/g, '')}
+                      </p>
+                    </div>
+                    <p className="text-slate-500 text-sm">
+                      Enter your M-Pesa PIN on the popup to confirm payment
+                    </p>
                   </div>
-                ))}
-              </div>
 
-              <div className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${
-                orderStatus === 'PAID'
-                  ? 'border-emerald-500/30 bg-emerald-500/10'
-                  : 'border-white/10 bg-white/[0.03]'
-              }`}>
-                <div className={`w-2 h-2 rounded-full ${orderStatus === 'PAID' ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
-                <span className={`text-sm font-medium ${orderStatus === 'PAID' ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  {orderStatus === 'PAID' ? 'Payment confirmed!' : 'Waiting for payment...'}
-                </span>
-                <span className="text-slate-600 text-xs ml-auto">Live</span>
-              </div>
+                  <div className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${
+                    orderStatus === 'PAID'
+                      ? 'border-emerald-500/30 bg-emerald-500/10'
+                      : orderStatus === 'FAILED'
+                      ? 'border-red-500/30 bg-red-500/10'
+                      : 'border-white/10 bg-white/[0.03]'
+                  }`}>
+                    <div className={`w-2 h-2 rounded-full shrink-0 ${
+                      orderStatus === 'PAID'   ? 'bg-emerald-400' :
+                      orderStatus === 'FAILED' ? 'bg-red-400' :
+                      'bg-amber-400 animate-pulse'
+                    }`} />
+                    <span className={`text-sm font-medium ${
+                      orderStatus === 'PAID'   ? 'text-emerald-400' :
+                      orderStatus === 'FAILED' ? 'text-red-400' :
+                      'text-amber-400'
+                    }`}>
+                      {orderStatus === 'PAID'       ? '✅ Payment confirmed by Vodacom MZ!' :
+                       orderStatus === 'FAILED'     ? '❌ Payment failed' :
+                       orderStatus === 'PROCESSING' ? 'Waiting for your PIN...' :
+                       'Connecting to Vodacom MZ...'}
+                    </span>
+                    <span className="text-slate-600 text-xs ml-auto font-mono">LIVE</span>
+                  </div>
 
-              <button type="button" onClick={handleMpesaPayment}
-                disabled={paymentLoading || orderStatus === 'PAID'}
-                className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold transition-colors flex items-center justify-center gap-2">
-                {paymentLoading
-                  ? <><Loader2 className="w-4 h-4 animate-spin" />Processing payment...</>
-                  : orderStatus === 'PAID'
-                  ? <><CheckCircle className="w-4 h-4" />Payment Confirmed!</>
-                  : '✓ Confirm Payment'}
-              </button>
+                  {waitingTimer > 0 && orderStatus !== 'PAID' && (
+                    <p className="text-center text-slate-600 text-sm">
+                      Request expires in <span className="text-slate-400 font-mono font-bold">{waitingTimer}s</span>
+                    </p>
+                  )}
+
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={handleCheckStatus}
+                      className="flex-1 py-3 rounded-xl border border-white/10 text-slate-400 hover:bg-white/5 hover:text-slate-200 transition-colors text-sm font-medium"
+                    >
+                      Check Status
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setThirdPartyRef('')
+                        setMpesaPhone('')
+                        setMpesaError('')
+                      }}
+                      className="flex-1 py-3 rounded-xl bg-orange-500/10 border border-orange-500/20 text-orange-400 hover:bg-orange-500/20 transition-colors text-sm font-medium"
+                    >
+                      Resend Request
+                    </button>
+                  </div>
+                </div>
+              )}
             </motion.div>
           )}
 
