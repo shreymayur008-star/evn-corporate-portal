@@ -44,8 +44,6 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
   const [pinConfirmed,   setPinConfirmed]   = useState(false)
   const [confirmLoading, setConfirmLoading] = useState(false)
   const [showPinButton,  setShowPinButton]  = useState(false)
-  const pinTimerRef = useRef<NodeJS.Timeout | null>(null)
-
   const sseRef      = useRef<EventSource | null>(null)
   const waitTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -179,11 +177,7 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
       startWaitingTimer()
       toast.success('Payment request sent! Check your phone for the M-Pesa prompt.')
 
-      // Show "I've entered my PIN" button after 20 seconds
-      if (pinTimerRef.current) clearTimeout(pinTimerRef.current)
-      pinTimerRef.current = setTimeout(() => {
-        setShowPinButton(true)
-      }, 20_000)
+      setShowPinButton(true)
 
     } catch {
       setMpesaError('Connection error — please check your internet and retry')
@@ -254,10 +248,6 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
       clearInterval(waitTimerRef.current)
       waitTimerRef.current = null
     }
-    if (pinTimerRef.current) {
-      clearTimeout(pinTimerRef.current)
-      pinTimerRef.current = null
-    }
     if (sseRef.current) { sseRef.current.close(); sseRef.current = null }
   }
 
@@ -265,7 +255,6 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
     return () => {
       if (sseRef.current)      sseRef.current.close()
       if (waitTimerRef.current) clearInterval(waitTimerRef.current)
-      if (pinTimerRef.current)  clearTimeout(pinTimerRef.current)
     }
   }, [])
 
@@ -644,7 +633,6 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
                         setMpesaError('')
                         setShowPinButton(false)
                         setPinConfirmed(false)
-                        if (pinTimerRef.current) clearTimeout(pinTimerRef.current)
                       }}
                       className="flex-1 py-3 rounded-xl bg-orange-500/10 border border-orange-500/20
                                  text-orange-400 hover:bg-orange-500/20 transition-colors
