@@ -38,8 +38,13 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    const rawPaymentRef = order.paymentRef ?? ''
+    const txRef = rawPaymentRef.includes('|')
+      ? rawPaymentRef.split('|')[0]
+      : rawPaymentRef
+
     const result = await queryTransactionStatus({
-      queryReference: orderRef,
+      queryReference: txRef,
       thirdPartyRef,
     })
 

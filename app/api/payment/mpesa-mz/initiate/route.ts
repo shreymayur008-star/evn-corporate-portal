@@ -68,27 +68,29 @@ function buildReceiptEmail(
 
 async function pollUntilPaid(
   orderRef: string,
+  txRef:    string,
   tpRef:    string,
   email:    string,
   nome:     string,
   total:    number,
   items:    Array<{ meterNumber: string; amount: number }>
 ): Promise<void> {
-  const MAX  = 12
+  const MAX  = 18
   const WAIT = 10_000
 
+  await new Promise(r => setTimeout(r, 5_000))
+
   for (let i = 1; i <= MAX; i++) {
-    await new Promise(r => setTimeout(r, WAIT))
     try {
       const q    = await queryTransactionStatus({
-        queryReference: tpRef,
+        queryReference: txRef,
         thirdPartyRef:  tpRef,
       })
       const code = q.output_ResponseCode
-      console.log(`[mpesa-poll] ${i}/${MAX} ${orderRef} → ${code}`)
+      console.log(`[mpesa-poll] ${i}/${MAX} ${orderRef} txRef=${txRef} → ${code}`)
 
       if (code === 'INS-0') {
-        const txId = q.output_TransactionID ?? ''
+        const txId = q.output_TransactionID ?? txRef
         await prisma.order.update({
           where: { orderRef },
           data:  { status: 'PAID', paymentRef: txId, updatedAt: new Date() },
@@ -108,11 +110,16 @@ async function pollUntilPaid(
           where: { orderRef },
           data:  { status: 'FAILED', updatedAt: new Date() },
         })
+        console.log('[mpesa-poll] ❌ FAILED', orderRef, code)
         return
       }
+
+      console.log(`[mpesa-poll] pending — waiting 10s before attempt ${i + 1}`)
     } catch (e) {
-      console.error(`[mpesa-poll] attempt ${i}:`, e)
+      console.error(`[mpesa-poll] attempt ${i} error:`, e)
     }
+
+    if (i < MAX) await new Promise(r => setTimeout(r, WAIT))
   }
 
   await prisma.order.update({
@@ -159,7 +166,7 @@ export async function POST(req: NextRequest) {
 
     await prisma.order.update({
       where: { orderRef },
-      data:  { status: 'PROCESSING', paymentRef: tpRef },
+      data:  { status: 'PROCESSING', paymentRef: `${txRef}|${tpRef}` },
     })
 
     // ── Call Vodacom MZ via mpesa-node-api package ────────────
@@ -178,6 +185,7 @@ export async function POST(req: NextRequest) {
 
       void pollUntilPaid(
         orderRef,
+        txRef,
         tpRef,
         order.email,
         order.nome,

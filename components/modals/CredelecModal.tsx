@@ -181,7 +181,7 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
   }
 
   const handleCheckStatus = async () => {
-    if (!orderRef || !thirdPartyRef) return
+    if (!orderRef) return
     try {
       const res  = await fetch('/api/payment/mpesa-mz/query', {
         method:  'POST',
@@ -194,7 +194,7 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
         setStep('confirmation')
         toast.success('Payment confirmed!')
       } else {
-        toast(data.message ?? 'Payment not yet confirmed — please wait')
+        toast(data.message ?? 'Still processing — please wait')
       }
     } catch {
       toast.error('Could not check status — please retry')
