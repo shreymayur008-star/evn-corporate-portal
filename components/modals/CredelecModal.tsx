@@ -99,6 +99,7 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
       const data = await res.json()
       if (!res.ok) { toast.error(data.error || 'Failed to create order'); return }
       setOrderRef(data.orderRef)
+      setMpesaPhone(phone)
       setStep('payment')
       toast.success('Order confirmed! Check your email.')
       startSSE(data.orderRef)
@@ -481,9 +482,16 @@ export function CredelecModal({ onClose, closeModal }: { onClose?: () => void; c
                     {mpesaPhoneError && (
                       <p className="text-red-400 text-xs">{mpesaPhoneError}</p>
                     )}
-                    <p className="text-slate-600 text-xs">
-                      Vodacom (84/85) · Movitel (86) · Tmcel (82/83/87)
-                    </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-slate-600 text-xs">
+                        Vodacom (84/85) · Movitel (86) · Tmcel (82/83/87)
+                      </p>
+                      {nome && (
+                        <p className="text-slate-400 text-xs font-medium">
+                          {nome}
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between p-3 rounded-xl bg-orange-500/10 border border-orange-500/20">
