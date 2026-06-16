@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { z }                         from 'zod'
-import { Resend }                    from 'resend'
-import { prisma }                    from '@/lib/db'
+import { z }      from 'zod'
+import { Resend } from 'resend'
+import { prisma } from '@/lib/db'
 import {
   initiateC2B,
   queryTransactionStatus,
   normaliseMozPhone,
+  getMpesaMessage,
 } from '@/lib/mpesa-mz'
 
 export const dynamic = 'force-dynamic'
@@ -18,10 +19,56 @@ const schema = z.object({
   orderRef: z.string().startsWith('EVN-ORD-', 'Invalid order reference'),
 })
 
-// ── Background polling — no callback URL needed ────────────────
-// Fires after C2B succeeds. Polls Vodacom every 10 seconds.
-// When PAID: updates DB → SSE picks it up → browser updates live.
-async function pollUntilResolved(
+// ── Email builder ─────────────────────────────────────────────
+function buildReceiptEmail(
+  nome:  string,
+  txId:  string,
+  ref:   string,
+  total: number,
+  items: Array<{ meterNumber: string; amount: number }>
+): string {
+  return `<!DOCTYPE html><html>
+  <body style="font-family:Arial,sans-serif;background:#f5f5f5;padding:40px 0;margin:0;">
+    <div style="max-width:520px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+      <div style="background:#16a34a;padding:24px 32px;">
+        <h1 style="color:white;margin:0;font-size:22px;">✅ Payment Confirmed</h1>
+        <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">Vodacom Mozambique M-Pesa</p>
+      </div>
+      <div style="padding:32px;">
+        <p style="color:#1e293b;font-size:15px;margin:0 0 18px;">Hello ${nome},</p>
+        <p style="color:#475569;font-size:14px;margin:0 0 20px;">Your M-Pesa payment was confirmed by Vodacom Mozambique.</p>
+        <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:10px;padding:18px;text-align:center;margin-bottom:20px;">
+          <p style="color:#64748b;font-size:11px;margin:0 0 4px;text-transform:uppercase;letter-spacing:1px;">Vodacom Transaction ID</p>
+          <p style="color:#16a34a;font-size:26px;font-weight:bold;letter-spacing:4px;margin:0;font-family:monospace;">${txId}</p>
+        </div>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
+          <tr><td style="padding:7px 0;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Order Reference</td>
+              <td style="padding:7px 0;text-align:right;font-family:monospace;font-weight:bold;">${ref}</td></tr>
+          <tr><td style="padding:7px 0;color:#64748b;font-size:13px;">Amount Paid</td>
+              <td style="padding:7px 0;text-align:right;font-weight:bold;color:#E85D04;font-size:18px;">${total} MZN</td></tr>
+        </table>
+        <div style="background:#f8fafc;border-radius:8px;padding:14px;margin-bottom:18px;">
+          <p style="color:#475569;font-size:13px;font-weight:bold;margin:0 0 8px;">Recharged Meters:</p>
+          ${items.map(i => `
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #e2e8f0;">
+              <span style="font-family:monospace;color:#1e293b;font-size:13px;">⚡ ${i.meterNumber}</span>
+              <span style="font-weight:bold;color:#E85D04;">${i.amount} MZN</span>
+            </div>`).join('')}
+        </div>
+        <p style="color:#16a34a;font-size:13px;font-weight:bold;margin:0;">Your meters will be credited within 5 minutes.</p>
+      </div>
+      <div style="background:#f8fafc;padding:18px 32px;border-top:1px solid #e2e8f0;">
+        <p style="color:#94a3b8;font-size:12px;margin:0;">EVN — Eletricidade Vantara Nacional, E.P.<br/>
+        Linha Verde: 1455 (free, 24/7) | atendimento@evn.co.mz</p>
+      </div>
+    </div>
+  </body></html>`
+}
+
+// ── Background polling ────────────────────────────────────────
+// No callback URL needed. Polls Vodacom every 10s after C2B.
+// When customer enters PIN → Vodacom confirms → DB→PAID→email→SSE
+async function pollUntilPaid(
   orderRef:      string,
   thirdPartyRef: string,
   email:         string,
@@ -29,11 +76,11 @@ async function pollUntilResolved(
   total:         number,
   items:         Array<{ meterNumber: string; amount: number }>
 ): Promise<void> {
-  const MAX_ATTEMPTS  = 6        // 6 × 10s = 60 seconds max
-  const POLL_INTERVAL = 10_000  // 10 seconds between polls
+  const MAX     = 12  // 12 × 10s = 120 seconds (2 minutes)
+  const WAIT_MS = 10_000
 
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    await new Promise(res => setTimeout(res, POLL_INTERVAL))
+  for (let i = 1; i <= MAX; i++) {
+    await new Promise(r => setTimeout(r, WAIT_MS))
 
     try {
       const result = await queryTransactionStatus({
@@ -42,123 +89,55 @@ async function pollUntilResolved(
       })
 
       const code = result.output_ResponseCode
+      console.log(`[mpesa-poll] attempt ${i}/${MAX} — ${orderRef} — ${code}`)
 
-      console.log(
-        `[mpesa-poll] attempt ${attempt}/${MAX_ATTEMPTS}`,
-        orderRef, code
-      )
-
-      // ✅ Payment confirmed by Vodacom MZ
       if (code === 'INS-0') {
-        const transactionId = result.output_TransactionID ?? ''
+        const txId = result.output_TransactionID ?? ''
 
         await prisma.order.update({
           where: { orderRef },
-          data:  {
-            status:     'PAID',
-            paymentRef: transactionId,
-            updatedAt:  new Date(),
-          },
+          data:  { status: 'PAID', paymentRef: txId, updatedAt: new Date() },
         })
 
         await resend.emails.send({
           from:    'EVN Portal <onboarding@resend.dev>',
           to:      email,
-          subject: `EVN — M-Pesa Payment Confirmed: ${transactionId}`,
-          html: `
-            <!DOCTYPE html>
-            <html>
-            <body style="font-family:Arial,sans-serif;background:#f5f5f5;padding:40px 0;margin:0;">
-              <div style="max-width:520px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
-                <div style="background:#16a34a;padding:24px 32px;">
-                  <h1 style="color:white;margin:0;font-size:22px;">Payment Confirmed</h1>
-                  <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">
-                    Vodacom Mozambique M-Pesa
-                  </p>
-                </div>
-                <div style="padding:32px;">
-                  <p style="color:#1e293b;font-size:16px;margin:0 0 8px;">Hello ${nome},</p>
-                  <p style="color:#475569;font-size:14px;margin:0 0 24px;">
-                    Your M-Pesa payment was confirmed by Vodacom Mozambique.
-                  </p>
-                  <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:10px;padding:20px;text-align:center;margin-bottom:20px;">
-                    <p style="color:#64748b;font-size:11px;margin:0 0 6px;text-transform:uppercase;letter-spacing:1px;">
-                      Vodacom Transaction ID
-                    </p>
-                    <p style="color:#16a34a;font-size:26px;font-weight:bold;letter-spacing:4px;margin:0;font-family:monospace;">
-                      ${transactionId}
-                    </p>
-                  </div>
-                  <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-                    <tr>
-                      <td style="padding:8px 0;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Order Reference</td>
-                      <td style="padding:8px 0;text-align:right;font-family:monospace;font-weight:bold;">${orderRef}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:8px 0;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Amount Paid</td>
-                      <td style="padding:8px 0;text-align:right;font-weight:bold;color:#E85D04;font-size:18px;">${total} MZN</td>
-                    </tr>
-                    <tr>
-                      <td style="padding:8px 0;color:#64748b;font-size:13px;">Date</td>
-                      <td style="padding:8px 0;text-align:right;font-size:13px;">${new Date().toLocaleString('pt-MZ')}</td>
-                    </tr>
-                  </table>
-                  <div style="background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:20px;">
-                    <p style="color:#475569;font-size:13px;font-weight:bold;margin:0 0 10px;">Recharged Meters:</p>
-                    ${items.map(item => `
-                      <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e2e8f0;">
-                        <span style="font-family:monospace;color:#1e293b;font-size:13px;">${item.meterNumber}</span>
-                        <span style="font-weight:bold;color:#E85D04;">${item.amount} MZN</span>
-                      </div>
-                    `).join('')}
-                  </div>
-                  <p style="color:#16a34a;font-size:13px;font-weight:bold;margin:0;">
-                    Your meters will be credited within 5 minutes.
-                  </p>
-                </div>
-                <div style="background:#f8fafc;padding:20px 32px;border-top:1px solid #e2e8f0;">
-                  <p style="color:#94a3b8;font-size:12px;margin:0;">
-                    EVN — Eletricidade Vantara Nacional, E.P.<br/>
-                    Linha Verde: 1455 (free, 24/7) | atendimento@evn.co.mz
-                  </p>
-                </div>
-              </div>
-            </body>
-            </html>
-          `,
+          subject: `EVN — M-Pesa Payment Confirmed: ${txId}`,
+          html:    buildReceiptEmail(nome, txId, orderRef, total, items),
         })
 
-        console.log('[mpesa-poll] PAID', orderRef, transactionId)
+        console.log('[mpesa-poll] ✅ PAID', orderRef, txId)
         return
       }
 
-      // Definitive failure — stop polling
       if (['INS-5', 'INS-6'].includes(code)) {
         await prisma.order.update({
           where: { orderRef },
           data:  { status: 'FAILED', updatedAt: new Date() },
         })
-        console.log('[mpesa-poll] FAILED', orderRef, code)
+        console.log('[mpesa-poll] ❌ FAILED', orderRef, code)
         return
       }
 
-      // Other codes (INS-9, INS-13, etc.) — continue polling
+      // INS-9, INS-13, others = still pending, continue polling
 
     } catch (err) {
-      console.error(`[mpesa-poll] attempt ${attempt} error:`, err)
+      console.error(`[mpesa-poll] attempt ${i} error:`, err)
     }
   }
 
-  // Exhausted all attempts
-  console.warn('[mpesa-poll] timed out after 60s', orderRef)
+  // Timed out after 2 minutes
+  console.warn('[mpesa-poll] timeout after 2min', orderRef)
   await prisma.order.update({
     where: { orderRef },
     data:  { status: 'FAILED', updatedAt: new Date() },
   }).catch(() => {})
 }
 
-// ── Main Route Handler ─────────────────────────────────────────
+// ── Main handler ──────────────────────────────────────────────
 export async function POST(req: NextRequest) {
+  let parsedOrderRef = ''
+
   try {
     const body   = await req.json()
     const parsed = schema.safeParse(body)
@@ -171,6 +150,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { phone, amount, orderRef } = parsed.data
+    parsedOrderRef = orderRef
 
     let normalisedPhone: string
     try {
@@ -192,12 +172,6 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       )
     }
-    if (order.status === 'CANCELLED') {
-      return NextResponse.json(
-        { error: 'This order has been cancelled' },
-        { status: 400 }
-      )
-    }
 
     const thirdPartyRef = `EVN-${Date.now()}`
 
@@ -206,6 +180,7 @@ export async function POST(req: NextRequest) {
       data:  { status: 'PROCESSING' },
     })
 
+    // ── Real Vodacom MZ C2B API call ──────────────────────────
     const result = await initiateC2B({
       amount,
       msisdn:         normalisedPhone,
@@ -213,16 +188,18 @@ export async function POST(req: NextRequest) {
       thirdPartyRef,
     })
 
-    const items = order.items as Array<{ meterNumber: string; amount: number }>
+    console.log('[mpesa-mz/initiate]', orderRef, result.responseCode)
 
-    // ── Handle Vodacom MZ Response ─────────────────────────────
     if (result.success) {
       await prisma.order.update({
         where: { orderRef },
         data:  { paymentRef: result.conversationId ?? result.transactionId ?? '' },
       })
 
-      void pollUntilResolved(
+      const items = order.items as Array<{ meterNumber: string; amount: number }>
+
+      // Fire-and-forget background polling
+      void pollUntilPaid(
         orderRef,
         thirdPartyRef,
         order.email,
@@ -241,128 +218,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // ── Sandbox Demo Mode ───────────────────────────────────────
-    // INS-21 = C2B not yet provisioned on this sandbox account.
-    // The real Vodacom API was called and auth was accepted.
-    // Run a realistic demo flow so the complete payment UX works.
-    if (result.responseCode === 'INS-21') {
-      console.log('[mpesa-mz] INS-21 — sandbox demo mode activated for', orderRef)
-
-      const txDigits = Date.now().toString().slice(-8)
-      const txSuffix = Math.random().toString(36).substring(2, 6).toUpperCase()
-      const demoTransactionId = `MP${txDigits}${txSuffix}`
-
-      await prisma.order.update({
-        where: { orderRef },
-        data:  { paymentRef: demoTransactionId },
-      })
-
-      void (async () => {
-        try {
-          await new Promise(res => setTimeout(res, 18_000))
-
-          const paid = await prisma.order.update({
-            where: { orderRef },
-            data:  {
-              status:     'PAID',
-              paymentRef: demoTransactionId,
-              updatedAt:  new Date(),
-            },
-          })
-
-          await resend.emails.send({
-            from:    'EVN Portal <onboarding@resend.dev>',
-            to:      paid.email,
-            subject: `EVN — M-Pesa Payment Confirmed: ${demoTransactionId}`,
-            html: `
-              <!DOCTYPE html>
-              <html>
-              <body style="font-family:Arial,sans-serif;background:#f5f5f5;padding:40px 0;margin:0;">
-                <div style="max-width:520px;margin:0 auto;background:white;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
-                  <div style="background:#16a34a;padding:24px 32px;">
-                    <h1 style="color:white;margin:0;font-size:22px;">✅ Payment Confirmed</h1>
-                    <p style="color:rgba(255,255,255,0.85);margin:4px 0 0;font-size:13px;">
-                      Vodacom Mozambique M-Pesa
-                    </p>
-                  </div>
-                  <div style="padding:32px;">
-                    <p style="color:#1e293b;font-size:16px;margin:0 0 8px;">Hello ${paid.nome},</p>
-                    <p style="color:#475569;font-size:14px;margin:0 0 24px;">
-                      Your M-Pesa payment was confirmed by Vodacom Mozambique.
-                    </p>
-                    <div style="background:#f0fdf4;border:2px solid #16a34a;border-radius:10px;padding:20px;text-align:center;margin-bottom:20px;">
-                      <p style="color:#64748b;font-size:11px;margin:0 0 6px;text-transform:uppercase;letter-spacing:1px;">
-                        Vodacom Transaction ID
-                      </p>
-                      <p style="color:#16a34a;font-size:26px;font-weight:bold;letter-spacing:4px;margin:0;font-family:monospace;">
-                        ${demoTransactionId}
-                      </p>
-                    </div>
-                    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
-                      <tr>
-                        <td style="padding:8px 0;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Order Reference</td>
-                        <td style="padding:8px 0;text-align:right;font-family:monospace;font-weight:bold;">${paid.orderRef}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:8px 0;color:#64748b;font-size:13px;border-bottom:1px solid #e2e8f0;">Amount Paid</td>
-                        <td style="padding:8px 0;text-align:right;font-weight:bold;color:#E85D04;font-size:18px;">${paid.total} MZN</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:8px 0;color:#64748b;font-size:13px;">Phone (M-Pesa)</td>
-                        <td style="padding:8px 0;text-align:right;font-family:monospace;">+${normalisedPhone}</td>
-                      </tr>
-                      <tr>
-                        <td style="padding:8px 0;color:#64748b;font-size:13px;">Date</td>
-                        <td style="padding:8px 0;text-align:right;font-size:13px;">${new Date().toLocaleString('pt-MZ')}</td>
-                      </tr>
-                    </table>
-                    <div style="background:#f8fafc;border-radius:8px;padding:16px;margin-bottom:20px;">
-                      <p style="color:#475569;font-size:13px;font-weight:bold;margin:0 0 10px;">Recharged Meters:</p>
-                      ${items.map((item: { meterNumber: string; amount: number }) => `
-                        <div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #e2e8f0;">
-                          <span style="font-family:monospace;color:#1e293b;font-size:13px;">⚡ ${item.meterNumber}</span>
-                          <span style="font-weight:bold;color:#E85D04;">${item.amount} MZN</span>
-                        </div>
-                      `).join('')}
-                    </div>
-                    <p style="color:#16a34a;font-size:13px;font-weight:bold;margin:0;">
-                      Your meters will be credited within 5 minutes.
-                    </p>
-                  </div>
-                  <div style="background:#f8fafc;padding:20px 32px;border-top:1px solid #e2e8f0;">
-                    <p style="color:#94a3b8;font-size:12px;margin:0;">
-                      EVN — Eletricidade Vantara Nacional, E.P.<br/>
-                      Linha Verde: 1455 (free, 24/7) | atendimento@evn.co.mz
-                    </p>
-                  </div>
-                </div>
-              </body>
-              </html>
-            `,
-          })
-
-          console.log('[mpesa-mz] demo PAID ✅', orderRef, demoTransactionId)
-
-        } catch (err) {
-          console.error('[mpesa-mz] demo flow error:', err)
-          await prisma.order.update({
-            where: { orderRef },
-            data:  { status: 'FAILED' },
-          }).catch(() => {})
-        }
-      })()
-
-      return NextResponse.json({
-        success:        true,
-        transactionId:  demoTransactionId,
-        conversationId: `AG_DEMO_${Date.now()}`,
-        thirdPartyRef,
-        normalisedPhone,
-        message: 'Payment request sent — check your phone for the M-Pesa prompt',
-      })
-    }
-
-    // ── All other Vodacom errors — show specific message ────────
+    // ── Vodacom returned a non-success code ───────────────────
     await prisma.order.update({
       where: { orderRef },
       data:  { status: 'PENDING' },
@@ -370,7 +226,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       {
-        error:        result.message,
+        error:        getMpesaMessage(result.responseCode),
         responseCode: result.responseCode,
       },
       { status: 400 }
@@ -378,6 +234,14 @@ export async function POST(req: NextRequest) {
 
   } catch (err) {
     console.error('[mpesa-mz/initiate] error:', err)
+
+    if (parsedOrderRef) {
+      await prisma.order.update({
+        where: { orderRef: parsedOrderRef },
+        data:  { status: 'PENDING' },
+      }).catch(() => {})
+    }
+
     return NextResponse.json(
       { error: 'Payment initiation failed — please try again' },
       { status: 500 }
